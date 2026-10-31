@@ -17,6 +17,7 @@
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const icon = (name, cls = 'ic') => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('class', cls); const u = document.createElementNS('http://www.w3.org/2000/svg', 'use'); u.setAttribute('href', `#i-${name}`); s.append(u); return s; };
   const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { return null; } };
+  const lessonLanguage = () => pref('nl.language') || new URLSearchParams(location.search).get('language') || 'English';
   const S = { catalog: null, topics: new Map(), order: [], module: new Map(), lesson: null, request: null, pending: null, startPending: false, replayPending: false, done: null, build: 0, health: null, notes: [] };
 
   // ---------- per-browser progress ----------
@@ -146,7 +147,7 @@
     const label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
-      const r = await api('/api/computed-lesson', { topic: q, narrate: 'template' }, 20000);
+      const language=lessonLanguage();const r = await api('/api/computed-lesson', { topic: q, language, narrate: /^English(?: \(India\))?$/i.test(language)?'template':'ai' }, 20000);
       if (r.supported) return openTopic(r);
       go('#/tutor');
       if (typeof submitChat === 'function') submitChat(q);
@@ -364,10 +365,10 @@
   }
   let buildTimer = null;
   async function build(id) {
-    const seq = ++S.build, request = { algorithm: id, input: $('topicData').value, target: $('topicTarget').value };
+    const language=lessonLanguage(),seq = ++S.build, request = { algorithm: id, input: $('topicData').value, target: $('topicTarget').value, language };
     $('topicStart').disabled = true;
     try {
-      const r = await api('/api/computed-lesson', { ...request, narrate: 'template' }, 20000);
+      const r = await api('/api/computed-lesson', { ...request, narrate: /^English(?: \(India\))?$/i.test(language)?'template':'ai' }, 20000);
       if (seq === S.build) showBuilt(id, r, request);
     } catch (e) {
       if (seq !== S.build) return;
@@ -712,6 +713,7 @@
       parent.postMessage({ type:'neuralelearn:bookmark-data', title:document.querySelector('#lessonTitle')?.textContent?.trim() || prompt, prompt, notes }, videoEmbedParentOrigin);
     }
     if (d.type === 'neuralelearn:open-bookmark' && typeof d.prompt === 'string') { const input = document.querySelector('#chatInput'); if (input) { input.value=d.prompt; input.focus(); } }
+    if (d.type === 'neuralelearn:read-screen' && typeof d.prompt === 'string' && typeof submitChat === 'function') submitChat(d.prompt.slice(0, 500));
   });
   window.addEventListener('hashchange', route);
   if (!location.hash) history.replaceState(null, '', '#/');
