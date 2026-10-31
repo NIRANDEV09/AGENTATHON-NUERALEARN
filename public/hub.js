@@ -1,66 +1,65 @@
 (()=>{
   const $=id=>document.getElementById(id);
-  const home=$('modeHome'),chatView=$('chatView'),lessonApp=$('lessonApp'),docsView=$('docsView'),videoReference=$('videoReference'),videoFrame=$('videoReferenceFrame');
+  const home=$('modeHome'),chatView=$('chatView'),lessonApp=$('lessonApp'),docsView=$('docsView'),videoReference=$('videoReference'),videoFrame=$('videoReferenceFrame'),readScreenView=$('readScreenView');
   const KEY='neuralelearn.chat.threads.v1',BOOKMARKS='neuralelearn.bookmarks.v1',PREFS='neuralelearn.preferences.v1';let chatLog=[],threadId='',busy=false,recorder=null;
   const readThreads=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}};
   const safeText=x=>String(x??'');
+  function inlineMarkdown(parent,text){
+    const re=/(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;let at=0,m;
+    while((m=re.exec(text))){if(m.index>at)parent.append(document.createTextNode(text.slice(at,m.index)));const token=m[0];let node;
+      if(token.startsWith('**')||token.startsWith('__')){node=document.createElement('strong');node.textContent=token.slice(2,-2)}
+      else if(token.startsWith('~~')){node=document.createElement('del');node.textContent=token.slice(2,-2)}
+      else if(token.startsWith('`')){node=document.createElement('code');node.textContent=token.slice(1,-1)}
+      else if(token.startsWith('*')||token.startsWith('_')){node=document.createElement('em');node.textContent=token.slice(1,-1)}
+      else{const link=token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);node=document.createElement('a');node.textContent=link[1];node.href=link[2];node.target='_blank';node.rel='noopener noreferrer'}
+      parent.append(node);at=re.lastIndex;
+    }
+    if(at<text.length)parent.append(document.createTextNode(text.slice(at)));
+  }
+  function renderMarkdown(host,source){
+    const lines=String(source||'').replace(/\r/g,'').split('\n');host.replaceChildren();let i=0;
+    const listItem=line=>line.match(/^\s*([-*+]|\d+[.)])\s+(.+)$/);
+    const tableCells=line=>line.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(x=>x.trim());
+    const tableSep=line=>/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+    while(i<lines.length){const line=lines[i],t=line.trim();if(!t){i++;continue;}
+      if(/^```/.test(t)){const lang=t.slice(3).trim(),code=[];i++;while(i<lines.length&&!/^```\s*$/.test(lines[i].trim()))code.push(lines[i++]);if(i<lines.length)i++;const pre=document.createElement('pre'),el=document.createElement('code');if(/^[\w+-]+$/.test(lang))el.className='language-'+lang;el.textContent=code.join('\n');pre.append(el);host.append(pre);continue;}
+      const heading=t.match(/^(#{1,6})\s+(.+)$/);if(heading){const el=document.createElement('h'+heading[1].length);inlineMarkdown(el,heading[2].replace(/\s+#+$/,''));host.append(el);i++;continue;}
+      if(/^([-*_])\1\1+\s*$/.test(t)){host.append(document.createElement('hr'));i++;continue;}
+      if(i+1<lines.length&&t.includes('|')&&tableSep(lines[i+1])){const headers=tableCells(t),table=document.createElement('table'),thead=document.createElement('thead'),hr=document.createElement('tr');headers.forEach(v=>{const th=document.createElement('th');inlineMarkdown(th,v);hr.append(th)});thead.append(hr);table.append(thead);i+=2;const body=document.createElement('tbody');while(i<lines.length&&lines[i].trim().includes('|')){const vals=tableCells(lines[i]),tr=document.createElement('tr');headers.forEach((_,j)=>{const td=document.createElement('td');inlineMarkdown(td,vals[j]||'');tr.append(td)});body.append(tr);i++;}table.append(body);const wrap=document.createElement('div');wrap.className='chat-table-wrap';wrap.append(table);host.append(wrap);continue;}
+      const firstItem=listItem(line);if(firstItem){const ordered=/^\d/.test(firstItem[1]),list=document.createElement(ordered?'ol':'ul');while(i<lines.length){const item=listItem(lines[i]);if(!item||/^\d/.test(item[1])!==ordered)break;const li=document.createElement('li');inlineMarkdown(li,item[2]);list.append(li);i++;}host.append(list);continue;}
+      if(/^>\s?/.test(t)){const q=document.createElement('blockquote'),parts=[];while(i<lines.length&&/^\s*>/.test(lines[i]))parts.push(lines[i++].replace(/^\s*>\s?/,''));inlineMarkdown(q,parts.join(' '));host.append(q);continue;}
+      const para=[t];i++;while(i<lines.length&&lines[i].trim()&&!/^```|^#{1,6}\s|^([-*_])\1\1+\s*$|^>\s?/.test(lines[i].trim())&&!listItem(lines[i])&&!(i+1<lines.length&&lines[i].includes('|')&&tableSep(lines[i+1]))){para.push(lines[i++].trim());}const p=document.createElement('p');inlineMarkdown(p,para.join(' '));host.append(p);
+    }
+  }
   function renderRecents(){const box=$('chatRecent');if(!box)return;box.replaceChildren();readThreads().slice().reverse().slice(0,20).forEach(t=>{const b=document.createElement('button');b.textContent=t.title||'New chat';b.onclick=()=>loadThread(t.id);box.append(b)})}
   function saveThread(){if(!chatLog.length)return;const all=readThreads();const prior=all.findIndex(x=>x.id===threadId);const t={id:threadId||String(Date.now()),title:chatLog.find(m=>m.role==='user')?.content?.slice(0,48)||'New chat',messages:chatLog.slice(-40)};threadId=t.id;if(prior>=0)all[prior]=t;else all.push(t);try{localStorage.setItem(KEY,JSON.stringify(all.slice(-30)))}catch{}renderRecents()}
+  function addListenButton(row,text){const button=document.createElement('button');button.className='chat-listen';button.type='button';button.textContent='🔊 Listen';button.addEventListener('click',async()=>{if(!window.NeuraVoice)return;if(window.NeuraVoice.active()){if(window.NeuraVoice.paused()){window.NeuraVoice.resume();button.textContent='⏸ Pause'}else{window.NeuraVoice.pause();button.textContent='▶ Resume'}return}button.textContent='⏸ Pause';await window.NeuraVoice.speak(text,currentLanguage());button.textContent='🔊 Listen'});row.append(button)}
   function renderMessages(){const host=$('chatMessages');host.replaceChildren();if(!chatLog.length){const welcome=document.createElement('div');welcome.className='chat-welcome';welcome.innerHTML='<span class="chat-spark">✦</span><h1>What can I help you learn?</h1><p>Ask a question and get a clear, thoughtful answer.</p><div class="chat-suggestions"><button data-prompt="Explain photosynthesis in simple terms">Explain photosynthesis simply</button><button data-prompt="Help me understand linked lists with an example">Teach me linked lists</button><button data-prompt="Walk me through solving a quadratic equation">Solve a quadratic equation</button></div>';host.append(welcome);welcome.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.prompt));return}
-    chatLog.forEach(m=>{const row=document.createElement('div');row.className='chat-msg '+(m.role==='user'?'user':'assistant');if(m.role==='assistant'){const icon=document.createElement('span');icon.className='chat-role';icon.textContent='✦';row.append(icon)}const bubble=document.createElement('div');bubble.className='chat-bubble';bubble.textContent=m.content;row.append(bubble);host.append(row)});host.scrollTop=host.scrollHeight}
-  let currentHubMode = 'home';
-  function show(mode) {
-    const from = currentHubMode;
-    currentHubMode = mode;
-    const docsView = $('docsView');
-    if (docsView) docsView.hidden = mode !== 'docs';
-    home.hidden = mode !== 'home';
-    chatView.hidden = mode !== 'chat';
-    videoReference.hidden = mode !== 'video';
-    lessonApp.hidden = mode !== 'canvas';
-    document.body.dataset.mode = mode;
-    if (mode === 'video') {
-      if (!videoFrame.src) videoFrame.src = 'http://127.0.0.1:3005/app/?embed=video&parentOrigin=' + encodeURIComponent(location.origin) + '#/tutor';
-    }
-    if (mode === 'canvas') {
-      if ($('lessonModeLabel')) $('lessonModeLabel').textContent = 'AI Whiteboard Tutor';
-      if ($('lessonTitle')) $('lessonTitle').textContent = 'Interactive Animated Whiteboard';
-      if ($('lessonMeta')) $('lessonMeta').textContent = 'Progressive SVG vector illustrations drawn and narrated in real time';
-      if ($('recordVideoBtn')) $('recordVideoBtn').hidden = true;
-      const backDocBtn = $('dxBackToDoc');
-      if (backDocBtn) backDocBtn.hidden = !window._docsParked;
-      const bp = document.querySelector('.brand .pill');
-      if (bp) bp.textContent = 'AI WHITEBOARD';
-      applyPreferences();
-    } else {
-      const backDocBtn = $('dxBackToDoc');
-      if (backDocBtn) backDocBtn.hidden = true;
-    }
-    if (mode === 'chat') {
-      renderMessages();
-      renderRecents();
-      setTimeout(() => $('groqChatInput').focus(), 30);
-    }
-    document.dispatchEvent(new CustomEvent('neura:modechange', { detail: { from, to: mode } }));
-  }
+    chatLog.forEach(m=>{const row=document.createElement('div');row.className='chat-msg '+(m.role==='user'?'user':'assistant');if(m.role==='assistant'){const icon=document.createElement('span');icon.className='chat-role';icon.textContent='✦';row.append(icon)}const bubble=document.createElement('div');bubble.className='chat-bubble';if(m.role==='assistant')renderMarkdown(bubble,m.content);else bubble.textContent=m.content;row.append(bubble);host.append(row);if(m.role==='assistant')addListenButton(row,m.content)});host.scrollTop=host.scrollHeight}
+  function currentLanguage(){let p={};try{p=JSON.parse(localStorage.getItem(PREFS)||'{}')}catch{}return p.language||'English'}
+  function sendVideoLanguage(){try{videoFrame.contentWindow?.postMessage({type:'neuralelearn:language',language:currentLanguage()},'http://127.0.0.1:3005')}catch{}}
+  function setLanguage(language){const allowed=['English','English (India)','Hindi','Kannada','Tamil','Telugu','Malayalam','Marathi','Bengali','Spanish','French'];if(!allowed.includes(language))language='English';let p={};try{p=JSON.parse(localStorage.getItem(PREFS)||'{}')}catch{}p.language=language;localStorage.setItem(PREFS,JSON.stringify(p));['settingLanguage','language','chatLanguage','videoLanguage'].forEach(id=>{const el=$(id);if(el)el.value=language});sendVideoLanguage()}
+let currentHubMode='home';function show(mode){const from=currentHubMode;currentHubMode=mode;if(mode!=='readscreen')window.stopReadScreenCapture?.();home.hidden=mode!=='home';chatView.hidden=mode!=='chat';videoReference.hidden=mode!=='video';lessonApp.hidden=mode!=='canvas';if(docsView)docsView.hidden=mode!=='docs';if(readScreenView)readScreenView.hidden=mode!=='readscreen';document.body.dataset.mode=mode;if(mode==='readscreen')window.startNeuraDesktopOverlay?.();if(mode==='video'){if(!videoFrame.src)videoFrame.src='http://127.0.0.1:3005/app/?embed=video&parentOrigin='+encodeURIComponent(location.origin)+'&language='+encodeURIComponent(currentLanguage())+'#/tutor';else sendVideoLanguage()}if(mode==='canvas'){if($('lessonModeLabel'))$('lessonModeLabel').textContent='AI Whiteboard Tutor';if($('lessonTitle'))$('lessonTitle').textContent='Interactive Animated Whiteboard';if($('lessonMeta'))$('lessonMeta').textContent='Progressive SVG vector illustrations drawn and narrated in real time';if($('recordVideoBtn'))$('recordVideoBtn').hidden=true;const bp=document.querySelector('.brand .pill');if(bp)bp.textContent='AI WHITEBOARD';const backDoc=$('dxBackToDoc');if(backDoc)backDoc.hidden=!window._docsParked;applyPreferences()}else if($('dxBackToDoc'))$('dxBackToDoc').hidden=true;if(mode==='chat'){renderMessages();renderRecents();setTimeout(()=>$('groqChatInput').focus(),30)}document.dispatchEvent(new CustomEvent('neura:modechange',{detail:{from,to:mode}}))}
   document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.mode)));
   document.querySelectorAll('[data-back-home]').forEach(b=>b.addEventListener('click',()=>showHomeSection('home')));
-  $('dxBackToDoc')?.addEventListener('click', () => { const docsBtn = document.querySelector('[data-mode=\"docs\"]'); if (docsBtn) docsBtn.click(); });
+  dxBackToDoc?.addEventListener('click',()=>document.querySelector('[data-mode=docs]')?.click());
   function showHomeSection(name='home'){show('home');$('homeLanding').hidden=name!=='home';$('hubBookmarksPage').hidden=name!=='bookmarks';$('hubSettingsPage').hidden=name!=='settings';document.querySelectorAll('[data-hub-nav]').forEach(x=>x.classList.toggle('active',x.dataset.hubNav===name));if(name==='bookmarks')renderBookmarks();if(name==='settings')loadPreferences()}
   document.querySelectorAll('[data-hub-nav]').forEach(b=>b.addEventListener('click',()=>{const section=b.dataset.hubNav;if(section==='history'){show('chat');renderRecents()}else showHomeSection(section)}));
   function readBookmarks(){try{return JSON.parse(localStorage.getItem(BOOKMARKS)||'[]')}catch{return[]}}
   function renderBookmarks(){const host=$('hubBookmarkList');host.replaceChildren();const items=readBookmarks();if(!items.length){const empty=document.createElement('p');empty.className='hub-empty';empty.textContent='No bookmarked lessons yet. Open a visual lesson and choose “Save bookmark” to keep it here.';host.append(empty);return}items.slice().reverse().forEach(item=>{const card=document.createElement('article');card.className='hub-bookmark-card';const title=document.createElement('h2');title.textContent=item.title;const prompt=document.createElement('p');prompt.textContent=item.prompt;const meta=document.createElement('small');meta.textContent=new Date(item.savedAt).toLocaleString();const actions=document.createElement('div');actions.className='hub-bookmark-actions';const open=document.createElement('button');open.textContent='Open prompt';open.onclick=()=>{if(item.mode==='video'){show('video');videoFrame.contentWindow?.postMessage({type:'neuralelearn:open-bookmark',prompt:item.prompt},'http://127.0.0.1:3005');return}show('canvas');$('concept').value=item.prompt;$('concept').focus()};const download=document.createElement('button');download.textContent='Download notes';download.onclick=()=>{const a=document.createElement('a'),blob=new Blob([item.notes||('# '+item.title+'\n\n'+item.prompt+'\n')],{type:'text/markdown;charset=utf-8'});a.href=URL.createObjectURL(blob);a.download=(item.title||'lesson').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};const remove=document.createElement('button');remove.textContent='Remove';remove.onclick=()=>{localStorage.setItem(BOOKMARKS,JSON.stringify(readBookmarks().filter(x=>x.id!==item.id)));renderBookmarks()};actions.append(open,download,remove);card.append(title,prompt,meta,actions);host.append(card)})}
   function loadPreferences(){let p={};try{p=JSON.parse(localStorage.getItem(PREFS)||'{}')}catch{}$('settingName').value=p.name||'';$('settingLevel').value=p.level||'university beginner';$('settingLanguage').value=p.language||'English'}
-  function applyPreferences(){let p={};try{p=JSON.parse(localStorage.getItem(PREFS)||'{}')}catch{}if($('level')&&p.level)$('level').value=p.level;if($('language')&&p.language)$('language').value=p.language;const name=(p.name||'N').trim();document.querySelectorAll('.hub-avatar').forEach(a=>a.textContent=(name[0]||'N').toUpperCase())}
+  function applyPreferences(){let p={};try{p=JSON.parse(localStorage.getItem(PREFS)||'{}')}catch{}if($('level')&&p.level)$('level').value=p.level;if($('language'))$('language').value=p.language||'English';['chatLanguage','videoLanguage','settingLanguage'].forEach(id=>{const el=$(id);if(el)el.value=p.language||'English'});const name=(p.name||'N').trim();document.querySelectorAll('.hub-avatar').forEach(a=>a.textContent=(name[0]||'N').toUpperCase());sendVideoLanguage()}
+  ['settingLanguage','language','chatLanguage','videoLanguage'].forEach(id=>$(id)?.addEventListener('change',e=>setLanguage(e.target.value)));
   $('hubSettingsForm').addEventListener('submit',e=>{e.preventDefault();const p={name:$('settingName').value.trim().slice(0,40),level:$('settingLevel').value,language:$('settingLanguage').value};localStorage.setItem(PREFS,JSON.stringify(p));applyPreferences();$('hubSettingsStatus').textContent='Settings saved on this device.';setTimeout(()=>$('hubSettingsStatus').textContent='',2400)});
   $('videoBookmark').addEventListener('click',()=>{videoFrame.contentWindow?.postMessage({type:'neuralelearn:save-bookmark'},'http://127.0.0.1:3005');$('videoBookmark').textContent='… Save bookmark'});
+  videoFrame.addEventListener('load',sendVideoLanguage);
   window.addEventListener('message',e=>{if(e.origin!=='http://127.0.0.1:3005'||e.source!==videoFrame.contentWindow||e.data?.type!=='neuralelearn:bookmark-data')return;if(!e.data.prompt){$('videoBookmark').textContent='Ask a topic first';setTimeout(()=>$('videoBookmark').textContent='♧ Save bookmark',1800);return}const entry={id:String(Date.now()),savedAt:new Date().toISOString(),mode:'video',title:e.data.title||e.data.prompt,prompt:e.data.prompt,notes:e.data.notes||''};const items=readBookmarks();items.push(entry);localStorage.setItem(BOOKMARKS,JSON.stringify(items.slice(-100)));$('videoBookmark').textContent='✓ Bookmarked';setTimeout(()=>$('videoBookmark').textContent='♧ Save bookmark',1800)});
   $('lessonBookmark').addEventListener('click',()=>{const data=window.neuraLessonController?.bookmarkData?.();if(!data?.prompt){const st=$('wbStatusBar')||$('status');if(st)st.textContent='Generate a lesson before bookmarking it.';return}const items=readBookmarks(),entry={id:String(Date.now()),savedAt:new Date().toISOString(),mode:document.body.dataset.mode==='canvas'?'canvas':'video',title:data.title||data.prompt,prompt:data.prompt,notes:data.notes||''};items.push(entry);localStorage.setItem(BOOKMARKS,JSON.stringify(items.slice(-100)));$('lessonBookmark').textContent='✓ Bookmarked';setTimeout(()=>$('lessonBookmark').textContent='♧ Save bookmark',1600)});
   $('hubSearch').addEventListener('submit',e=>{e.preventDefault();const q=$('hubQuery').value.trim();if(!q)return;show('chat');sendMessage(q);$('hubQuery').value=''});
   $('chatNew').addEventListener('click',()=>{saveThread();threadId='';chatLog=[];renderMessages();$('groqChatInput').focus()});
   function loadThread(id){const t=readThreads().find(x=>x.id===id);if(!t)return;threadId=t.id;chatLog=Array.isArray(t.messages)?t.messages.slice():[];renderMessages()}
   async function sendMessage(text){const q=String(text||'').trim();if(!q||busy)return;chatLog.push({role:'user',content:q});const host=$('chatMessages');const welcome=host.querySelector('.chat-welcome');if(welcome)welcome.remove();const user=document.createElement('div');user.className='chat-msg user';const ub=document.createElement('div');ub.className='chat-bubble';ub.textContent=q;user.append(ub);host.append(user);const row=document.createElement('div');row.className='chat-msg assistant';const icon=document.createElement('span');icon.className='chat-role';icon.textContent='✦';const bubble=document.createElement('div');bubble.className='chat-bubble chat-typing';bubble.textContent='Thinking…';row.append(icon,bubble);host.append(row);host.scrollTop=host.scrollHeight;busy=true;$('groqSend').disabled=true;$('chatStatus').textContent='Groq is preparing an answer…';
-    try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatLog.slice(-24)})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||`Chat failed (${r.status})`)}bubble.classList.remove('chat-typing');bubble.textContent='';const reader=r.body.getReader(),decoder=new TextDecoder();let buf='',answer='';for(;;){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line)continue;let msg;try{msg=JSON.parse(line)}catch{continue}if(msg.error)throw new Error(msg.error);if(msg.text){answer+=msg.text;bubble.textContent=answer;host.scrollTop=host.scrollHeight}}}if(buf.trim()){try{const msg=JSON.parse(buf);if(msg.text)answer+=msg.text}catch{}}if(!answer.trim())throw new Error('Groq returned an empty answer. Please try again.');chatLog.push({role:'assistant',content:answer});saveThread();$('chatStatus').textContent='Answered by Groq · '+(window.chatModel||'GPT-OSS 20B');}
+    try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatLog.slice(-24),language:currentLanguage()})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||`Chat failed (${r.status})`)}bubble.classList.remove('chat-typing');bubble.replaceChildren();const reader=r.body.getReader(),decoder=new TextDecoder();let buf='',answer='';for(;;){const {value,done}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line)continue;let msg;try{msg=JSON.parse(line)}catch{continue}if(msg.error)throw new Error(msg.error);if(msg.text){answer+=msg.text;renderMarkdown(bubble,answer);host.scrollTop=host.scrollHeight}}}if(buf.trim()){try{const msg=JSON.parse(buf);if(msg.text)answer+=msg.text}catch{}}if(!answer.trim())throw new Error('Groq returned an empty answer. Please try again.');renderMarkdown(bubble,answer);host.scrollTop=host.scrollHeight;chatLog.push({role:'assistant',content:answer});addListenButton(row,answer);saveThread();$('chatStatus').textContent='Answered by Groq · '+(window.chatModel||'GPT-OSS 20B');}
     catch(e){bubble.classList.remove('chat-typing');bubble.textContent='I could not get an answer: '+e.message+'\nCheck the Groq API key in the local server configuration.';$('chatStatus').textContent='Chat request failed.';chatLog.pop()}
     finally{busy=false;$('groqSend').disabled=false;$('groqChatInput').focus()}}
   $('groqChatForm').addEventListener('submit',e=>{e.preventDefault();const input=$('groqChatInput'),q=input.value;input.value='';input.style.height='auto';sendMessage(q)});
@@ -70,5 +69,34 @@
   function saveVideo(blob){const a=document.createElement('a'),url=URL.createObjectURL(blob),ext=blob.type.includes('mp4')?'mp4':'webm';a.href=url;a.download='neuralelearn-lesson.'+ext;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
   async function recordLesson(){const btn=$('recordVideoBtn');if(recorder){recorder.stop();return}if(!window.neuraLessonController?.hasLesson()){alert('Generate a video lesson first, then record it.');return}if(!navigator.mediaDevices?.getDisplayMedia||!window.MediaRecorder){alert('Video recording needs Chrome or Edge.');return}let stream;try{stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',frameRate:30},audio:true,preferCurrentTab:true,selfBrowserSurface:'include',surfaceSwitching:'exclude',systemAudio:'exclude'})}catch(e){if(e.name!=='NotAllowedError')alert('Could not start recording: '+e.message);return}const track=stream.getVideoTracks()[0];try{if(window.CropTarget&&track.cropTo)await track.cropTo(await CropTarget.fromElement($('board')))}catch{}const mime=mimeTypes.find(t=>MediaRecorder.isTypeSupported(t))||'',rec=mime?new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5000000}):new MediaRecorder(stream),chunks=[];recorder=rec;rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};const finish=()=>{if(rec.state!=='inactive')rec.stop();stream.getTracks().forEach(t=>t.stop())};rec.onstop=()=>{window.removeEventListener('lesson:ended',ended);recorder=null;btn.textContent='● Record video';if(chunks.length)saveVideo(new Blob(chunks,{type:mime.split(';')[0]||'video/webm'}))};const ended=()=>setTimeout(finish,1200);window.addEventListener('lesson:ended',ended,{once:true});track.addEventListener('ended',finish,{once:true});rec.start(1000);btn.textContent='■ Stop recording';if(!stream.getAudioTracks().length)alert('Recording without sound. Select this tab and enable tab audio in the share dialog.');window.neuraLessonController.replay()}
   $('recordVideoBtn').addEventListener('click',recordLesson);
-  renderRecents();applyPreferences();show('home');
+  let queuedReadScreenVideoPrompt='',readScreenVideoPromptSent=false;
+  function deliverReadScreenVideoPrompt(){if(!queuedReadScreenVideoPrompt||readScreenVideoPromptSent)return;readScreenVideoPromptSent=true;videoFrame.contentWindow?.postMessage({type:'neuralelearn:read-screen',prompt:queuedReadScreenVideoPrompt},'http://127.0.0.1:3005')}
+  videoFrame.addEventListener('load',deliverReadScreenVideoPrompt);
+  function continueReadScreenInMode(action){
+    const session=action.session||{},mode=action.mode;
+    const prompt=`I marked a region on my screen. Please explain it using this learning mode.\n\nMy question: ${session.question||'Explain the marked area.'}\n\nWhat NeuraLearn identified: ${session.explanation||'The marked region was not identified clearly.'}\n\nScreen context: ${session.context||'Use the visible context around the marked area.'}\n\nExplain the selected content clearly and connect it to the surrounding context.`;
+    if(mode==='chat'){show('chat');sendMessage(prompt);return}
+    if(mode==='canvas'){show('canvas');$('concept').value=prompt;$('generateBtn').click();return}
+    if(mode==='video'){
+      const clean=value=>String(value||'').replace(/\s+/g,' ').trim();
+      const head='Explain the marked area in a clear visual lesson. Selection: ';
+      const selected=clean(session.explanation)||'Explain the marked screen content.';
+      const context=clean(session.context).slice(0,45),questionText=clean(session.question).slice(0,35);
+      const suffix=(context?` Context: ${context}.`:'')+(questionText?` Question: ${questionText}.`:'');
+      const selectedBudget=Math.max(0,500-head.length-suffix.length);
+      queuedReadScreenVideoPrompt=(head+selected.slice(0,selectedBudget)+suffix).slice(0,500);
+      readScreenVideoPromptSent=false;show('video');setTimeout(deliverReadScreenVideoPrompt,1200);
+    }
+  }
+  let readScreenPollBusy=false;
+  async function pollReadScreenChoice(){if(readScreenPollBusy)return;readScreenPollBusy=true;try{const response=await fetch('/api/read-screen/next',{cache:'no-store'});if(response.ok){const data=await response.json();if(data.action)continueReadScreenInMode(data.action)}}catch{}finally{readScreenPollBusy=false}}
+  async function launchReadScreenFromUrl(){
+    const params=new URLSearchParams(location.search),sessionId=params.get('readScreen'),mode=params.get('mode');
+    if(!sessionId||!['chat','video','canvas'].includes(mode))return;
+    history.replaceState(null,'',location.pathname+location.hash);
+    try{const response=await fetch('/api/read-screen/session/'+encodeURIComponent(sessionId));const session=await response.json().catch(()=>({}));if(!response.ok)throw new Error(session.error||'That screen selection expired. Mark the area again.');continueReadScreenInMode({mode,session})}
+    catch(error){show('readscreen');const target=$('screenShareStatus');if(target)target.textContent=error.message}
+  }
+  document.addEventListener('nl:voice-error',e=>{const message=e.detail?.message||'Natural voice is unavailable.';if($('chatStatus'))$('chatStatus').textContent=message;else if($('wbStatusBar'))$('wbStatusBar').textContent=message});
+  renderRecents();applyPreferences();show('home');pollReadScreenChoice();setInterval(pollReadScreenChoice,700);setTimeout(launchReadScreenFromUrl,150);
 })();
