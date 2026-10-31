@@ -2,7 +2,7 @@
   "name": "neuralelearn-live-tutor",
   "version": "1.0.0",
   "private": true,
-  "description": "Adaptive AI tutor with Groq chat, narrated video lessons, and an interactive canvas.",
+  "description": "Adaptive AI tutor with Groq chat, narrated video lessons, PDF & Files tutoring, and an interactive canvas.",
   "scripts": {
     "start": "npm run build && node server.js",
     "build": "vite build --config vite.config.mjs"
