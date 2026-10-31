@@ -1,6 +1,4 @@
 // NeuraLearn Whiteboard Tutor Initialization and Dashboard Integration
-// Integrates CanvasOperationEngine, StudentWhiteboardController, Socratic Tutor Chat,
-// KaTeX mathematical rendering, adaptive scaffolding levels, and session persistence.
 
 document.addEventListener('DOMContentLoaded', () => {
   const $ = id => document.getElementById(id);
@@ -8,20 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const svgEl = $('whiteboardSvg');
   if (!svgEl) return;
 
-  // 1. Initialize Canvas Operation Engine & Student Controller
-  const opEngine = new CanvasOperationEngine(svgEl, { sketchMode: true });
-  window.canvasOpEngine = opEngine;
-
-  const studentCtrl = new StudentWhiteboardController(opEngine, {
-    onStudentAction: (actionType, id, obj) => {
-      saveSessionDebounced();
-    }
-  });
-  window.studentWhiteboard = studentCtrl;
-
-  // 2. Initialize Legacy Renderer and Playback Controller (preserving existing lesson compatibility)
   const renderer = new WhiteboardRenderer(svgEl);
-  renderer.opEngine = opEngine; // bridge to operation engine
 
   const controller = new WhiteboardPlaybackController({
     renderer,
@@ -44,220 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.wbController = controller;
 
-  // Session state
-  window._currentSessionId = 'session_' + Date.now().toString(36);
-  window._currentScaffoldingLevel = 0;
-  window._tutorBusy = false;
-
-  // 3. Format Math Text with KaTeX or fallback
-  function formatMathText(text) {
-    if (!text) return '';
-    let str = String(text);
-
-    // KaTeX display math $$...$$
-    if (typeof window !== 'undefined' && window.katex) {
-      str = str.replace(/\$\$([^$]+)\$\$/g, (match, expr) => {
-        try {
-          return `<div class="katex-display">${window.katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false })}</div>`;
-        } catch (_) { return match; }
-      });
-      // KaTeX inline math $...$
-      str = str.replace(/\$([^$\n]+)\$/g, (match, expr) => {
-        try {
-          return window.katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
-        } catch (_) { return match; }
-      });
-    }
-
-    // Markdown formatting: bold, italic, line breaks
-    str = str.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\n\n/g, '<br><br>')
-      .replace(/\n/g, '<br>');
-
-    return str;
-  }
-
-  // 4. Update Scaffolding Badge
-  function updateScaffoldBadge(level = 0) {
-    window._currentScaffoldingLevel = level;
-    const badge = $('wbScaffoldBadge');
-    if (!badge) return;
-
-    badge.className = `wb-scaffold-pill level-${level}`;
-    const labels = [
-      'Level 0: Concept',
-      'Level 1: Hint & Analogy',
-      'Level 2: Step-by-Step',
-      'Level 3: Guided Work',
-      'Level 4: Full Solution'
-    ];
-    badge.textContent = labels[level] || `Level ${level}`;
-  }
-
-  // 5. Append message to chat stream
-  function appendChatMessage(role, content, heading = '') {
-    const stream = $('wbChatStream');
-    if (!stream) return;
-
-    const msg = document.createElement('div');
-    msg.className = `wb-msg ${role === 'user' ? 'student-msg' : 'active'}`;
-    if (role === 'user') {
-      msg.style.opacity = '1';
-      msg.style.borderLeft = '4px solid #64748b';
-      msg.style.background = '#f8fafc';
-    }
-
-    const head = document.createElement('div');
-    head.className = 'wb-msg-head';
-    head.textContent = heading || (role === 'user' ? 'You' : 'AI Tutor');
-    if (role === 'user') head.style.color = '#475569';
-
-    const p = document.createElement('div');
-    p.innerHTML = formatMathText(content);
-
-    msg.append(head, p);
-    stream.appendChild(msg);
-    stream.scrollTop = stream.scrollHeight;
-  }
-
-  // 6. Conversational AI Tutor Interaction (/api/tutor/chat)
-  async function askTutor(messageText, options = {}) {
-    const text = String(messageText || '').trim();
-    if (!text && !options.canvasSnapshot) return;
-    if (window._tutorBusy) return;
-
-    window._tutorBusy = true;
-    const sendBtn = $('wbSendInterrupt');
-    if (sendBtn) sendBtn.disabled = true;
-
-    // Interrupt ongoing voice playback immediately
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    controller.stopSpeech();
-    opEngine.cancelAnimations();
-
-    // Display user message in chat stream
-    if (text) {
-      appendChatMessage('user', text);
-    }
-
-    if ($('wbStatusBar')) $('wbStatusBar').textContent = 'AI Tutor is thinking and drawing...';
-
-    try {
-      const canvasSummary = opEngine.getCanvasSummary();
-      const payload = {
-        sessionId: window._currentSessionId,
-        message: text,
-        subject: 'Physics',
-        topic: $('lessonTitle')?.textContent || $('concept')?.value || 'Interactive Lesson',
-        canvasState: canvasSummary,
-        scaffoldingLevel: window._currentScaffoldingLevel || 0,
-        isInterruption: controller.isPlaying || false,
-        canvasSnapshot: options.canvasSnapshot || undefined
-      };
-
-      const res = await fetch('/api/tutor/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Tutor error (${res.status})`);
-      }
-
-      const data = await res.json();
-
-      // Update scaffolding level
-      if (data.scaffoldingLevel !== undefined) {
-        updateScaffoldBadge(data.scaffoldingLevel);
-      }
-
-      // Display AI Tutor response
-      appendChatMessage('assistant', data.tutorMessage || 'Let us continue with this step.', 'AI Tutor');
-
-      // Execute structured operations sequentially
-      if (Array.isArray(data.operations) && data.operations.length > 0) {
-        if ($('wbStatusBar')) $('wbStatusBar').textContent = `Drawing ${data.operations.length} visual element(s)...`;
-        await opEngine.executeBatch(data.operations, !opEngine.reducedMotion);
-      }
-
-      // Speak narration with voice synthesis if enabled
-      if (data.spokenNarration && !controller.isMuted) {
-        controller.speakNarration(data.spokenNarration);
-      }
-
-      if ($('wbStatusBar')) {
-        $('wbStatusBar').textContent = data.guidingQuestion || 'Ready for your next question or drawing.';
-      }
-
-      saveSessionDebounced();
-    } catch (e) {
-      if ($('wbStatusBar')) $('wbStatusBar').textContent = 'Tutor notice: ' + e.message;
-      appendChatMessage('assistant', `I encountered an issue: ${e.message}. Please try asking again.`, 'System');
-    } finally {
-      window._tutorBusy = false;
-      if (sendBtn) sendBtn.disabled = false;
-    }
-  }
-
-  // 7. Wire Student Toolbar Controls
-  const toolButtons = document.querySelectorAll('.wb-tool-btn');
-  toolButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      toolButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const tool = btn.dataset.tool;
-      studentCtrl.setTool(tool);
-    });
-  });
-
-  const colorChips = document.querySelectorAll('.wb-color-chip');
-  colorChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      colorChips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      studentCtrl.setColor(chip.dataset.color);
-    });
-  });
-
-  $('wbStrokeWidthSelect')?.addEventListener('change', e => {
-    studentCtrl.setWidth(e.target.value);
-  });
-
-  $('wbUndoBtn')?.addEventListener('click', () => studentCtrl.undo());
-  $('wbRedoBtn')?.addEventListener('click', () => studentCtrl.redo());
-  $('wbClearStudentBtn')?.addEventListener('click', () => studentCtrl.clearWithConfirmation('student'));
-  $('wbClearAllBtn')?.addEventListener('click', () => studentCtrl.clearWithConfirmation('all'));
-
-  // "Check My Work" Vision Analysis
-  $('wbCheckDrawingBtn')?.addEventListener('click', async () => {
-    if (window._tutorBusy) return;
-    if ($('wbStatusBar')) $('wbStatusBar').textContent = 'Analyzing your whiteboard drawings & equations...';
-    try {
-      const snapshot = await opEngine.toDataURL();
-      if (!snapshot) throw new Error('Could not capture canvas snapshot.');
-
-      appendChatMessage('user', 'Please review and evaluate my drawing/equations on the board.');
-      await askTutor('Please review my whiteboard drawing. Check my equations, vector directions, and problem solving.', { canvasSnapshot: snapshot });
-    } catch (e) {
-      if ($('wbStatusBar')) $('wbStatusBar').textContent = 'Check work notice: ' + e.message;
-    }
-  });
-
-  // Socratic Guidance Chips
-  document.querySelectorAll('.wb-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const askPrompt = chip.dataset.ask;
-      if (askPrompt) {
-        askTutor(askPrompt);
-      }
-    });
-  });
-
   // Wire Playback Buttons
   $('wbPlayBtn')?.addEventListener('click', () => {
     if (controller.isPlaying) {
@@ -271,27 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('wbVoiceBtn')?.addEventListener('click', () => controller.toggleVoice());
   $('wbSketchBtn')?.addEventListener('click', () => {
-    const isSketch = controller.renderer.toggleSketchMode();
-    opEngine.setSketchMode(isSketch);
+    controller.renderer.toggleSketchMode();
     if (controller.steps.length) controller.replayCurrentStep();
   });
   $('nextStepBtn')?.addEventListener('click', () => controller.nextStep());
   $('prevStepBtn')?.addEventListener('click', () => controller.prevStep());
   $('replayStepBtn')?.addEventListener('click', () => controller.replayCurrentStep());
-  $('resetLessonBtn')?.addEventListener('click', () => {
-    controller.resetLesson();
-    opEngine.opClear('all');
-  });
+  $('resetLessonBtn')?.addEventListener('click', () => controller.resetLesson());
   $('downloadNotesBtn')?.addEventListener('click', () => controller.exportNotes());
   $('downloadSvgBtn')?.addEventListener('click', () => controller.exportSvg());
 
-  // Interruption and Socratic input
+  // Interruption handling
   const sendInterrupt = () => {
     const input = $('wbInterruptInput');
     const cmd = input?.value?.trim();
     if (!cmd) return;
     input.value = '';
-    askTutor(cmd);
+    controller.handleInterruption(cmd, $('concept')?.value?.trim());
   };
 
   $('wbSendInterrupt')?.addEventListener('click', sendInterrupt);
@@ -435,11 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Main Lesson Generation Function
   let activeGenerationController = null;
   async function generateLesson() {
-    const enteredConcept = $('concept')?.value?.trim() || '';
     const docContext = window._docContext;
-    const concept = docContext && enteredConcept && enteredConcept === String(docContext.shown || '').trim()
-      ? String(docContext.concept || enteredConcept).slice(0, 11000)
-      : (enteredConcept || (window._attachedFile ? `Solve and explain the question in the attached ${window._attachedFile.name}` : ''));
+    let concept = $('concept')?.value?.trim() || (window._attachedFile ? `Solve and explain the question in the attached ${window._attachedFile.name}` : '');
+    if (docContext && (!concept || concept === docContext.shown)) {
+      concept = docContext.concept || concept;
+      if (docContext.visualContext) concept += `\n\nVisual grounding from the selected document page:\n${docContext.visualContext}`;
+    }
     if (!concept && !window._attachedFile) {
       if ($('wbStatusBar')) $('wbStatusBar').textContent = 'Please enter a question or attach an image / PDF.';
       $('concept')?.focus();
@@ -470,6 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
+      // 1. For uploaded questions (images or PDFs), use /api/lesson for complete, end-to-end mathematical solving
+      // This ensures all asked variables (e.g. BOTH acceleration 'a' AND tension 'T') and multiple-choice options are fully solved and highlighted.
       if (window._attachedFile) {
         if ($('wbStatusBar')) $('wbStatusBar').textContent = `Analyzing ${window._attachedFile.name} & solving full question...`;
         if ($('modelBadge')) $('modelBadge').textContent = 'Solving Problem...';
@@ -490,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Fast streaming endpoint
+      // 2. Otherwise (text topic), try fast first scene / streaming endpoint
       let response;
       try {
         response = await fetch('/api/lesson/first/stream', {
@@ -507,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (response && response.ok) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = '', fullText = '', firstScene = null;
+        let buffer = '', fullText = '', firstScene = null, doneEvent = null;
 
         const processLine = line => {
           const l = line.trim();
@@ -526,6 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
                   }
                 } catch (_) {}
               }
+            } else if (ev.type === 'done') {
+              doneEvent = ev;
             }
           } catch (_) {}
         };
@@ -542,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (buffer.trim()) processLine(buffer);
 
+        // If whole lesson was streamed in one shot (e.g. deterministic)
         if (firstScene && firstScene.segments && firstScene.segments.length > 1) {
           controller.loadLesson(firstScene, true);
           if ($('modelBadge')) $('modelBadge').textContent = `${firstScene.provider || 'Ready'} · Active`;
@@ -549,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
+        // If first scene was loaded, fetch the rest in parallel
         if (firstScene && firstScene.segments) {
           const restRes = await fetch('/api/lesson/rest', {
             method: 'POST',
@@ -570,6 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 segments: fullSegments,
                 checkpoint: rest.checkpoint || firstScene.checkpoint
               };
+              // Update remaining steps without interrupting ongoing playback of step 0
               controller.lesson = fullLesson;
               controller.steps = fullSegments;
               controller.renderTranscriptSidebar();
@@ -583,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Fallback to /api/lesson
+      // 2. Direct fallback to /api/lesson
       const fallbackRes = await fetch('/api/lesson', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -613,50 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('generateBtn')?.addEventListener('click', generateLesson);
 
-  // 8. Session Persistence & Restoration
-  let saveTimer = null;
-  function saveSessionDebounced() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        const sessionPayload = {
-          sessionId: window._currentSessionId,
-          topic: $('lessonTitle')?.textContent || 'AI Tutor Session',
-          scaffoldingLevel: window._currentScaffoldingLevel || 0,
-          canvasObjects: opEngine.getCanvasSummary(),
-          savedAt: Date.now()
-        };
-        localStorage.setItem('neuralelearn.tutor.session.v2', JSON.stringify(sessionPayload));
-        fetch('/api/tutor/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sessionPayload)
-        }).catch(() => {});
-      } catch (_) {}
-    }, 600);
-  }
-
-  // Restore session on load if available
-  function restoreSession() {
-    try {
-      const raw = localStorage.getItem('neuralelearn.tutor.session.v2');
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data && Array.isArray(data.canvasObjects) && data.canvasObjects.length > 0) {
-          window._currentSessionId = data.sessionId || window._currentSessionId;
-          updateScaffoldBadge(data.scaffoldingLevel || 0);
-          data.canvasObjects.forEach(obj => {
-            opEngine.execute({ operation: 'create', object: obj }, false);
-          });
-          if ($('wbStatusBar')) $('wbStatusBar').textContent = `Restored session (${data.canvasObjects.length} objects).`;
-        }
-      }
-    } catch (_) {}
-  }
-
-  restoreSession();
-
-  // Bookmarks compatibility
+  // Hook into window for hub.js bookmarks compatibility
   window.neuraLessonController = {
     hasLesson: () => !!(controller.lesson && controller.steps.length),
     replay: () => controller.playStep(0),
