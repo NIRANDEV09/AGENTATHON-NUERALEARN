@@ -22,7 +22,7 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b';
 const ACTIVE_MODEL = LLM_PROVIDER === 'groq' ? GROQ_MODEL : MODEL;
 const ACTIVE_KEY = LLM_PROVIDER === 'groq' ? GROQ_API_KEY : API_KEY;
-const RELEASE_TIER = 1;
+const RELEASE_TIER = 2;
 const ROOT = path.join(__dirname, fs.existsSync(path.join(__dirname, 'dist')) ? 'dist' : 'public');
 
 function send(res, status, data, type='application/json; charset=utf-8') {

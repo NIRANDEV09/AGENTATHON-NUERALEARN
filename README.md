@@ -1,8 +1,8 @@
-# NeuraLearn — Stage 1 Text Only
+# NeuraLearn — Stage 2 Text and Video
 
-This judge-demo build enables: **Text Chat**.
+This judge-demo build enables: **Text Chat and AI Video Explainer**.
 
-AI Video Explainer and AI Whiteboard Tutor are shown in the interface but locked in Stage 1.
+AI Whiteboard Tutor is shown in the interface but locked until Stage 3.
 
 ## Run on Windows
 
