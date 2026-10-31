@@ -39,13 +39,24 @@
   document.querySelectorAll('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
   // ---------- zoom and full screen ----------
-  function setZoom(z) {
-    $('zoomSel').value = String(z);
-    $('board').style.width = `${z * 100}%`;
-    $('boardWrap').classList.toggle('zoomed', z > 1);
+  const zoomSteps = [0.75, 1, 1.25, 1.5, 1.75, 2];
+  function setZoom(value) {
+    const requested = Number(value);
+    const z = zoomSteps.reduce((best, step) => Math.abs(step - requested) < Math.abs(best - requested) ? step : best, 1);
+    const select = $('zoomSel'), board = $('board'), wrap = $('boardWrap');
+    select.value = String(z);
+    board.style.width = `${z * 100}%`;
+    board.style.maxWidth = 'none';
+    board.style.marginInline = z < 1 ? 'auto' : '0';
+    wrap.classList.toggle('zoomed', z > 1);
+    wrap.dataset.zoom = String(z);
+    requestAnimationFrame(() => { wrap.scrollLeft = 0; wrap.scrollTop = 0; });
   }
-  $('zoomSel').addEventListener('change', e => setZoom(Number(e.target.value)));
-  $('zoomBtn').addEventListener('click', () => { const steps = [0.75, 1, 1.25, 1.5], i = steps.indexOf(Number($('zoomSel').value)); setZoom(steps[(i + 1) % steps.length]); });
+  $('zoomSel').addEventListener('change', e => setZoom(e.target.value));
+  $('zoomBtn').addEventListener('click', () => {
+    const index = zoomSteps.indexOf(Number($('zoomSel').value));
+    setZoom(zoomSteps[Math.min(index + 1, zoomSteps.length - 1)]);
+  });
   $('fullBtn').addEventListener('click', () => {
     const card = $('boardCard');
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
