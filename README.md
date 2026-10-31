@@ -1,19 +1,25 @@
-# AGENTATHON-NUERA
+# NeuraLearn — Stage 2 Text and Video
 
-Interactive AI Visual Tutor & Learning System.
+This judge-demo build enables: **Text Chat and AI Video Explainer**.
 
-## Project Structure
+AI Whiteboard Tutor is shown in the interface but locked until Stage 3.
 
-- **`frontend/index.html`**: NeuraLearn interactive visual tutor dashboard. Features multi-modal learning options:
-  - **Text Chat**: Structured explanations with visuals and code snippets.
-  - **AI Video Explainer**: Step-by-step dynamic concept visualizations with narration.
-  - **AI Canvas**: Interactive chalkboard diagramming workspace.
-- **`medical_heart_ai_whiteboard_voice.html`**: Medical AI whiteboard visualizer.
-- **`nueralearn_trials.html`**: Neural learning experiment trials.
+## Run on Windows
 
-## Running the Frontend Demo
+1. Extract this ZIP to a normal folder.
+2. Copy .env.example to .env and add your own API keys (see below).
+3. Double-click START.bat; the app opens in your browser.
 
-Open `frontend/index.html` directly in any web browser (Chrome, Edge, Firefox, Brave) or serve via any static file server:
-```bash
-python -m http.server 3000
-```
+## API keys
+
+Text Chat uses GROQ_API_KEY. The video tutor and whiteboard lesson service use GEMINI_API_KEY. Add keys only for features enabled in this stage. Keep .env private and do not share it with the ZIP.
+
+The included untime folder provides Node.js for Windows. Keep the terminal window open while using the app.
+
+## Feature progression
+
+- Stage 1: Text Chat
+- Stage 2: Text Chat + AI Video Explainer
+- Stage 3: Text Chat + AI Video Explainer + AI Whiteboard Tutor
+
+The home screen and feature cards are the same in each build. A locked mode explains which stage enables it.
