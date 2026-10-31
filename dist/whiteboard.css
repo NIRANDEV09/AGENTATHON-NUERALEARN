@@ -459,3 +459,205 @@
     height: 52vh;
   }
 }
+
+/* --- Student & Collaborative Interactive Toolbar --- */
+.wb-student-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fdfbf7;
+  border-bottom: 1px solid #e5dfd3;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+
+.wb-tool-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wb-tool-btn {
+  border: 1px solid #d1c8b8;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.wb-tool-btn:hover {
+  background: #f1ebd8;
+  border-color: #b8af9d;
+  color: #0f172a;
+}
+
+.wb-tool-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25);
+}
+
+.wb-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: #dcd4c5;
+  margin: 0 4px;
+}
+
+.wb-toolbar-spacer {
+  flex: 1;
+}
+
+.wb-color-group {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.wb-color-chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px #cbd5e1;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease;
+}
+
+.wb-color-chip:hover {
+  transform: scale(1.18);
+}
+
+.wb-color-chip.active {
+  box-shadow: 0 0 0 2px #2563eb;
+  transform: scale(1.2);
+}
+
+.wb-select-mini {
+  background: #ffffff;
+  border: 1px solid #d1c8b8;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+}
+
+.wb-history-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.wb-tool-btn-mini {
+  border: 1px solid #d1c8b8;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wb-tool-btn-mini:hover {
+  background: #f1ebd8;
+  color: #0f172a;
+}
+
+.wb-tool-btn-mini.danger:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.wb-btn-highlight {
+  border: 1px solid #059669;
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.wb-btn-highlight:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+/* Scaffolding Pill */
+.wb-scaffold-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wb-scaffold-pill.level-0 { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.wb-scaffold-pill.level-1 { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+.wb-scaffold-pill.level-2 { background: #fefce8; color: #854d0e; border-color: #fef08a; }
+.wb-scaffold-pill.level-3 { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.wb-scaffold-pill.level-4 { background: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
+
+/* Socratic Chips */
+.wb-socratic-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.wb-chip {
+  background: #ffffff;
+  border: 1px solid #d5cec1;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wb-chip:hover {
+  background: #f1ebd8;
+  color: #0f172a;
+  border-color: #b8af9d;
+}
+
+/* Highlighting Effect */
+.wb-highlighted {
+  animation: wbPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes wbPulse {
+  from { filter: drop-shadow(0 0 4px #facc15); opacity: 0.9; }
+  to { filter: drop-shadow(0 0 14px #eab308); opacity: 1; }
+}

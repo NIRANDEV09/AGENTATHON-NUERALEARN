@@ -1,0 +1,13 @@
+{
+  "sessionId": "http_test_session",
+  "subject": "Mathematics",
+  "scaffoldingLevel": 1,
+  "canvasObjects": [
+    {
+      "id": "math_1",
+      "type": "formula",
+      "latex": "x^2 + y^2 = r^2"
+    }
+  ],
+  "lastUpdated": 1793481087428
+}

@@ -1,7 +1,6 @@
 (()=>{
-  const RELEASE_TIER=Number(window.NEURA_RELEASE_TIER||3);
   const $=id=>document.getElementById(id);
-  const home=$('modeHome'),chatView=$('chatView'),lessonApp=$('lessonApp'),videoReference=$('videoReference'),videoFrame=$('videoReferenceFrame');
+  const home=$('modeHome'),chatView=$('chatView'),lessonApp=$('lessonApp'),docsView=$('docsView'),videoReference=$('videoReference'),videoFrame=$('videoReferenceFrame');
   const KEY='neuralelearn.chat.threads.v1',BOOKMARKS='neuralelearn.bookmarks.v1',PREFS='neuralelearn.preferences.v1';let chatLog=[],threadId='',busy=false,recorder=null;
   const readThreads=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}};
   const safeText=x=>String(x??'');
@@ -9,9 +8,44 @@
   function saveThread(){if(!chatLog.length)return;const all=readThreads();const prior=all.findIndex(x=>x.id===threadId);const t={id:threadId||String(Date.now()),title:chatLog.find(m=>m.role==='user')?.content?.slice(0,48)||'New chat',messages:chatLog.slice(-40)};threadId=t.id;if(prior>=0)all[prior]=t;else all.push(t);try{localStorage.setItem(KEY,JSON.stringify(all.slice(-30)))}catch{}renderRecents()}
   function renderMessages(){const host=$('chatMessages');host.replaceChildren();if(!chatLog.length){const welcome=document.createElement('div');welcome.className='chat-welcome';welcome.innerHTML='<span class="chat-spark">✦</span><h1>What can I help you learn?</h1><p>Ask a question and get a clear, thoughtful answer.</p><div class="chat-suggestions"><button data-prompt="Explain photosynthesis in simple terms">Explain photosynthesis simply</button><button data-prompt="Help me understand linked lists with an example">Teach me linked lists</button><button data-prompt="Walk me through solving a quadratic equation">Solve a quadratic equation</button></div>';host.append(welcome);welcome.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.prompt));return}
     chatLog.forEach(m=>{const row=document.createElement('div');row.className='chat-msg '+(m.role==='user'?'user':'assistant');if(m.role==='assistant'){const icon=document.createElement('span');icon.className='chat-role';icon.textContent='✦';row.append(icon)}const bubble=document.createElement('div');bubble.className='chat-bubble';bubble.textContent=m.content;row.append(bubble);host.append(row)});host.scrollTop=host.scrollHeight}
-  function show(mode){const required={chat:1,video:2,canvas:3}[mode]||1;if(RELEASE_TIER<required){const stage=required===2?'Stage 2':'Stage 3';alert('This build includes '+(RELEASE_TIER===1?'Text Chat only.':'Text Chat and AI Video Explainer.')+' Upgrade to '+stage+' for this feature.');return}home.hidden=mode!=='home';chatView.hidden=mode!=='chat';videoReference.hidden=mode!=='video';lessonApp.hidden=mode!=='canvas';document.body.dataset.mode=mode;if(mode==='video'){if(!videoFrame.src)videoFrame.src='http://127.0.0.1:3005/app/?embed=video&parentOrigin='+encodeURIComponent(location.origin)+'#/tutor'}if(mode==='canvas'){ if($('lessonModeLabel')) $('lessonModeLabel').textContent='AI Whiteboard Tutor';if($('lessonTitle')) $('lessonTitle').textContent='Interactive Animated Whiteboard';if($('lessonMeta')) $('lessonMeta').textContent='Progressive SVG vector illustrations drawn and narrated in real time';if($('recordVideoBtn')) $('recordVideoBtn').hidden=true;const bp=document.querySelector('.brand .pill');if(bp) bp.textContent='AI WHITEBOARD';applyPreferences()}if(mode==='chat'){renderMessages();renderRecents();setTimeout(()=>$('groqChatInput').focus(),30)}}
+  let currentHubMode = 'home';
+  function show(mode) {
+    const from = currentHubMode;
+    currentHubMode = mode;
+    const docsView = $('docsView');
+    if (docsView) docsView.hidden = mode !== 'docs';
+    home.hidden = mode !== 'home';
+    chatView.hidden = mode !== 'chat';
+    videoReference.hidden = mode !== 'video';
+    lessonApp.hidden = mode !== 'canvas';
+    document.body.dataset.mode = mode;
+    if (mode === 'video') {
+      if (!videoFrame.src) videoFrame.src = 'http://127.0.0.1:3005/app/?embed=video&parentOrigin=' + encodeURIComponent(location.origin) + '#/tutor';
+    }
+    if (mode === 'canvas') {
+      if ($('lessonModeLabel')) $('lessonModeLabel').textContent = 'AI Whiteboard Tutor';
+      if ($('lessonTitle')) $('lessonTitle').textContent = 'Interactive Animated Whiteboard';
+      if ($('lessonMeta')) $('lessonMeta').textContent = 'Progressive SVG vector illustrations drawn and narrated in real time';
+      if ($('recordVideoBtn')) $('recordVideoBtn').hidden = true;
+      const backDocBtn = $('dxBackToDoc');
+      if (backDocBtn) backDocBtn.hidden = !window._docsParked;
+      const bp = document.querySelector('.brand .pill');
+      if (bp) bp.textContent = 'AI WHITEBOARD';
+      applyPreferences();
+    } else {
+      const backDocBtn = $('dxBackToDoc');
+      if (backDocBtn) backDocBtn.hidden = true;
+    }
+    if (mode === 'chat') {
+      renderMessages();
+      renderRecents();
+      setTimeout(() => $('groqChatInput').focus(), 30);
+    }
+    document.dispatchEvent(new CustomEvent('neura:modechange', { detail: { from, to: mode } }));
+  }
   document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.mode)));
   document.querySelectorAll('[data-back-home]').forEach(b=>b.addEventListener('click',()=>showHomeSection('home')));
+  $('dxBackToDoc')?.addEventListener('click', () => { const docsBtn = document.querySelector('[data-mode=\"docs\"]'); if (docsBtn) docsBtn.click(); });
   function showHomeSection(name='home'){show('home');$('homeLanding').hidden=name!=='home';$('hubBookmarksPage').hidden=name!=='bookmarks';$('hubSettingsPage').hidden=name!=='settings';document.querySelectorAll('[data-hub-nav]').forEach(x=>x.classList.toggle('active',x.dataset.hubNav===name));if(name==='bookmarks')renderBookmarks();if(name==='settings')loadPreferences()}
   document.querySelectorAll('[data-hub-nav]').forEach(b=>b.addEventListener('click',()=>{const section=b.dataset.hubNav;if(section==='history'){show('chat');renderRecents()}else showHomeSection(section)}));
   function readBookmarks(){try{return JSON.parse(localStorage.getItem(BOOKMARKS)||'[]')}catch{return[]}}

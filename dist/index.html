@@ -2,8 +2,11 @@
 :root{--bg:#090a0c;--panel:#111317;--line:#272a30;--muted:#9ba1ad;--text:#f4f5f7;--accent:#c6f36a;--blue:#9ad9ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}button,input,textarea,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:10px;background:#1a1c21;color:var(--text);padding:9px 12px}button:hover{border-color:#5d626d}button:disabled{opacity:.45;cursor:wait}.app{max-width:1500px;margin:auto;padding:18px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:10px;font-weight:750;letter-spacing:-.04em;font-size:19px}.mark{display:grid;place-items:center;width:30px;height:30px;background:var(--accent);color:#10120b;border-radius:9px;font-weight:900}.pill{border:1px solid #333740;border-radius:999px;padding:5px 9px;color:var(--muted);font-size:12px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px}.board-wrap,.side{border:1px solid var(--line);background:var(--panel);border-radius:16px;overflow:hidden}.board-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}.board-head h1{font-size:15px;margin:0;font-weight:650}.board-head small{color:var(--muted)}.canvas-actions{display:flex;gap:6px;margin-left:auto}.canvas-actions button{font-size:11px;padding:7px 9px;white-space:nowrap}.canvas-actions button:disabled{opacity:.4}.board{position:relative;background:#fbfaf5;color:#151719;min-height:450px;height:min(68vh,720px);overflow:hidden}.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#777;padding:30px;pointer-events:none}.empty strong{display:block;color:#24262b;font-size:23px;letter-spacing:-.04em;margin-bottom:8px}.bottom{padding:12px 15px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}.progress{height:3px;background:#272a30;flex:1;border-radius:9px;overflow:hidden}.progress span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}.time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}.side{padding:16px;display:flex;flex-direction:column;gap:14px}.eyebrow{color:var(--accent);font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:750}.side h2{margin:0;font-size:20px;line-height:1.2;letter-spacing:-.04em}.sub{color:var(--muted);font-size:12px}.field{display:flex;flex-direction:column;gap:7px}.field label{font-size:12px;color:#c7cbd2;font-weight:600}.field textarea,.field input,.field select{width:100%;background:#0b0c0f;border:1px solid #30343c;border-radius:10px;color:var(--text);padding:11px;outline:none}.field textarea:focus,.field input:focus{border-color:#7f9d43}.field textarea{resize:vertical;min-height:95px}.primary{background:var(--accent);color:#10120b;border-color:var(--accent);font-weight:750}.primary:hover{background:#d5ff83}.row{display:flex;gap:8px}.row>*{flex:1}.status{padding:10px 11px;border:1px solid #2c3037;background:#0b0c0f;border-radius:10px;color:var(--muted);font-size:12px;min-height:37px}.status.busy{color:var(--accent)}.subtitles{background:#0b0c0f;border:1px solid #2c3037;border-radius:12px;padding:12px;min-height:82px}.subtitles .tag{font-size:10px;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}.subtitles p{margin:0;font-size:14px;line-height:1.55}.interrupt{display:flex;gap:7px}.interrupt input{min-width:0;flex:1;background:#0b0c0f;border:1px solid #30343c;border-radius:10px;padding:10px;color:white}.mic{min-width:42px}.mini{font-size:11px;color:var(--muted);line-height:1.5}.controls{display:flex;gap:7px;flex-wrap:wrap}.controls button{padding:8px 10px;font-size:12px}.quiz{display:none;border-top:1px solid var(--line);padding-top:13px}.quiz h3{margin:0 0 8px;font-size:13px}.quiz button{width:100%;text-align:left;margin:4px 0}.feedback{font-size:12px;color:var(--accent);margin-top:7px}.footer{color:#707683;text-align:center;font-size:11px;margin:14px 0}.loading-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;animation:pulse .8s infinite alternate}@keyframes pulse{to{opacity:.25}}@media(max-width:950px){.layout{grid-template-columns:1fr}.board{height:55vh;min-height:340px}.side{display:grid;grid-template-columns:1fr 1fr}.side>.intro,.side>.field,.side>.status,.side>.subtitles,.side>.interrupt,.side>.controls,.side>.quiz,.side>.mini{grid-column:1/-1}}@media(max-width:560px){.app{padding:10px}.top{align-items:flex-start}.layout{gap:10px}.side{display:flex}.board{min-height:330px;height:48vh}.board-head{align-items:flex-start;flex-wrap:wrap}.board-head small{max-width:100px;text-align:right}.canvas-actions{order:3;width:100%;margin:0}.canvas-actions button{flex:1}}
 .board{background:#e7e5df!important;height:min(72vh,820px)!important;overflow-y:auto!important;overscroll-behavior:contain;padding:20px}.notebook-page{background:#fbfaf5;border:1px solid #d7d4ca;border-radius:8px;box-shadow:0 3px 16px #17171712;margin:0 auto 22px;max-width:1050px;overflow:hidden}.notebook-page-head{display:flex;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid #e6e3d9;color:#697078;font-size:11px;letter-spacing:.1em;text-transform:uppercase}.notebook-canvas{display:block;width:100%;height:520px}.notebook-notes{padding:16px 22px 20px;border-top:1px solid #e6e3d9;color:#25292e;white-space:pre-wrap;line-height:1.65;font-size:14px}.notebook-notes:empty{display:none}.board>.empty{position:sticky;top:150px;margin:40px auto;max-width:460px}.board:has(.notebook-page)>.empty{display:none!important}@media(max-width:950px){.board{height:55vh!important;min-height:340px;padding:12px}.notebook-canvas{height:440px}}@media(max-width:560px){.board{min-height:330px;height:48vh!important;padding:8px}.notebook-canvas{height:360px}}
 .board{background:#fbfaf5!important;height:min(68vh,720px)!important;min-height:450px;overflow:hidden!important;padding:0!important}.notebook-page{display:none;height:100%;width:100%;max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}.notebook-page.active{display:flex;flex-direction:column}.notebook-canvas{flex:1;min-height:240px;height:auto}.notebook-notes{max-height:150px;overflow:auto;flex:none}.notebook-page-head{flex:none}@media(max-width:950px){.board{height:55vh!important;min-height:340px}.notebook-notes{max-height:120px}}@media(max-width:560px){.board{height:48vh!important;min-height:330px}.notebook-canvas{min-height:200px}.notebook-notes{max-height:105px}}
-</style><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=STIX+Two+Text:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/hub.css">
+</style><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=STIX+Two+Text:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="/hub.css">
 <link rel="stylesheet" href="/whiteboard.css">
+<link rel="stylesheet" href="/docs.css">
 </head><body>
 <section id="videoReference" class="zip-video-view" hidden><header class="zip-video-bar"><button type="button" data-back-home>← NeuraLearn Home</button><span>AI Video Explainer</span><button type="button" id="videoBookmark">♧ Save bookmark</button></header><iframe id="videoReferenceFrame" title="NeuraLearn AI Video Explainer from the referenced project" loading="lazy" referrerpolicy="same-origin"></iframe></section>
 <div id="modeHome" class="hub-shell">
@@ -13,6 +16,7 @@
 <section class="hub-cards" aria-label="Choose a learning style">
 <button class="mode-card" data-mode="chat"><span class="card-icon">▤</span><span class="card-arrow">→</span><strong>Text Chat</strong><small>Ask anything. Get clear, structured explanations with visuals and code.</small><span class="preview chat-preview"><span class="preview-question">Explain photosynthesis in simple terms</span><svg viewBox="0 0 360 150" aria-hidden="true"><circle cx="42" cy="54" r="18" fill="#f5cc44"/><path d="M42 23v-9M42 94v-9M11 54H2m80 0h-9M20 32l-7-7m58 58-7-7m0-44 7-7M13 83l7-7" stroke="#e4ad1f" stroke-width="3"/><text x="87" y="55">CO₂</text><path d="M120 52h50" stroke="#4097ce" stroke-width="3"/><path d="m166 46 8 6-8 6" fill="none" stroke="#4097ce" stroke-width="3"/><path d="M207 121V69m0 34q-34-24-32-47 27 2 32 34m0-8q8-28 34-27-2 24-34 42" fill="none" stroke="#468a57" stroke-width="4"/><path d="M208 90q-14-25-1-38 17 17 1 38" fill="#68ae6d" stroke="#468a57" stroke-width="2"/><path d="M246 52h48" stroke="#59a06b" stroke-width="3"/><text x="298" y="48">Glucose</text><text x="298" y="67">(energy)</text><text x="20" y="124">H₂O</text><path d="M62 120h106" stroke="#4097ce" stroke-width="3"/></svg></span></button>
 <button class="mode-card" data-mode="video"><span class="card-icon">▶</span><span class="card-arrow">→</span><strong>AI Video Explainer</strong><small>Get a dynamic, step-by-step visual explanation with voice &amp; animation.</small><span class="preview video-preview"><svg viewBox="0 0 360 150" aria-hidden="true"><g stroke="#9b83c9" stroke-width="2"><path d="M175 74 103 38m70 38-79 28m87-35 76-43m-76 48 81 37m-85-47 3-55m-2 64 0 60m-7-60-49-4m62 1 73-10"/></g><circle cx="174" cy="75" r="20" fill="#c2a9e5" stroke="#805bb6" stroke-width="3"/><circle cx="102" cy="38" r="8" fill="#ddccf2" stroke="#805bb6"/><circle cx="95" cy="104" r="8" fill="#ddccf2" stroke="#805bb6"/><circle cx="253" cy="31" r="8" fill="#ddccf2" stroke="#805bb6"/><circle cx="256" cy="113" r="8" fill="#ddccf2" stroke="#805bb6"/><text x="18" y="20">Neuron</text><text x="127" y="30">Dendrites</text><text x="271" y="36">Axon terminals</text><text x="172" y="129">Axon</text><path d="M18 132h320" stroke="#c9cbd1" stroke-width="3"/><path d="M18 132h190" stroke="#24272d" stroke-width="4"/><circle cx="208" cy="132" r="5" fill="#5b5bf0"/><circle cx="18" cy="132" r="13" fill="#15171b"/><path d="m14 125 10 7-10 7" fill="#fff"/></svg><span class="video-caption">▶ &nbsp; ━━━━━━━━━━━●━━━━ &nbsp; 1:24 / 3:56　◖))</span></span></button>
+<button class="mode-card" data-mode="docs"><span class="card-icon">⇪</span><span class="card-arrow">→</span><strong>PDF &amp; Files</strong><small>Upload documents, notes, or diagrams and learn grounded topics.</small><span class="preview docs-preview"><svg viewBox="0 0 320 150" aria-hidden="true"><rect x="75" y="18" width="170" height="114" rx="10" fill="#fff" stroke="#cfd4dc" stroke-width="2"/><path d="M100 42h70M100 62h120M100 82h90M100 102h110" stroke="#9ba3af" stroke-width="3" stroke-linecap="round"/><circle cx="212" cy="42" r="14" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/><path d="M212 36v12M206 42h12" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/></svg></span></button>
 <button class="mode-card" data-mode="canvas"><span class="card-icon">✎</span><span class="card-arrow">→</span><strong>AI Whiteboard Tutor</strong><small>Real-time animated drawings, progressive SVG strokes &amp; synchronized voice narration.</small><span class="preview canvas-preview"><span class="tool-mini">↖<br>✎<br>⌂<br>◯</span><svg viewBox="0 0 320 150" aria-hidden="true"><path d="M155 130 92 49 226 46 155 130m0 0 34-81m-34 81 73-84" fill="none" stroke="#828890" stroke-width="1.5"/><circle cx="92" cy="49" r="7" fill="#fff" stroke="#668fc1" stroke-width="2"/><circle cx="155" cy="130" r="7" fill="#fff" stroke="#668fc1" stroke-width="2"/><circle cx="189" cy="49" r="7" fill="#fff" stroke="#e3a83e" stroke-width="2"/><path d="M96 128q49 28 93 1" fill="none" stroke="#5b5bf0" stroke-dasharray="4 4"/><text x="233" y="33">θ = 30°</text><text x="233" y="60">T = 2π√(L/g)</text><path d="M30 32h42M30 44h30M30 56h46" stroke="#bbc0c7"/></svg><span class="swatch-mini"><i></i><i></i><i></i><i></i></span></span></button>
 </section><section class="hub-features"><div><span>♧</span><b>University Level</b><small>CS · AI/ML · Science · More</small></div><div><span>ϟ</span><b>Interactive Visuals</b><small>Drawn in real time</small></div><div><span>✥</span><b>AI Powered</b><small>Accurate · Adaptive · Fast</small></div></section></div>
 <section id="hubBookmarksPage" class="hub-subpage" hidden><header class="hub-subpage-head"><p class="hub-eyebrow">YOUR SAVED LESSONS</p><h1>Bookmarks</h1><p>Keep the explanations you want to revisit.</p></header><div id="hubBookmarkList" class="hub-bookmark-list"></div></section>
@@ -21,9 +25,146 @@
 <section id="chatView" class="chat-view" hidden><aside class="chat-sidebar"><a href="#home" class="hub-brand"><span class="hub-logo">✧</span><span>NeuraLearn</span></a><button class="chat-new" id="chatNew">＋ &nbsp;New chat</button><p>RECENTS</p><div id="chatRecent"></div><div class="chat-side-bottom"><button data-back-home>← Back to Home</button></div></aside><main class="chat-main"><header class="chat-top"><button data-back-home>← &nbsp;Home</button><span class="chat-model">Groq · GPT-OSS 20B</span><span class="hub-avatar">N</span></header><div id="chatMessages" class="chat-messages"><div class="chat-welcome"><span class="chat-spark">✦</span><h1>What can I help you learn?</h1><p>Ask a question and get a clear, thoughtful answer.</p><div class="chat-suggestions"><button data-prompt="Explain photosynthesis in simple terms">Explain photosynthesis simply</button><button data-prompt="Help me understand linked lists with an example">Teach me linked lists</button><button data-prompt="Walk me through solving a quadratic equation">Solve a quadratic equation</button></div></div></div><div class="chat-composer-wrap"><form id="groqChatForm" class="groq-composer"><textarea id="groqChatInput" rows="1" maxlength="5000" placeholder="Message NeuraLearn…"></textarea><div class="composer-foot"><span>Groq powered · Enter to send, Shift+Enter for new line</span><button type="submit" id="groqSend" aria-label="Send message">↑</button></div></form><p class="chat-note" id="chatStatus">Groq-powered chat · your key stays on this computer</p></div></main></section>
 
 <!-- Real-Time Animated AI Whiteboard Tutor -->
+<section id="docsView" class="dx-view" hidden>
+  <header class="dx-topbar">
+    <div class="dx-topbar-left">
+      <button type="button" class="dx-back-btn" data-back-home>← NeuraLearn Home</button>
+      <span class="dx-title-badge">PDF &amp; Files — Interactive Document Tutor</span>
+    </div>
+    <div class="dx-topbar-right">
+      <span id="dxDocBadge" class="dx-badge">No document loaded</span>
+    </div>
+  </header>
+
+  <!-- Banner for Alerts & Notifications -->
+  <div id="dxBanner" class="dx-banner info" hidden></div>
+
+  <!-- Main Scrollable Content Container -->
+  <div class="dx-content-scroll">
+    <!-- TOP SECTION: Document Viewer & Question Workspace -->
+    <div class="dx-workspace">
+      <!-- LEFT COLUMN: Document Viewer (~54%) -->
+      <aside class="dx-viewer-col">
+        <!-- Compact Drop Zone (Shown when no document is loaded) -->
+        <div id="dxDropzone" class="dx-dropzone">
+          <div class="dx-drop-icon">📄</div>
+          <div class="dx-drop-copy">
+            <strong>Select or drop a PDF or image here</strong>
+            <p>PDF, PNG, JPG, or WebP • Single file</p>
+          </div>
+          <button type="button" id="dxBrowseBtn" class="dx-btn primary">Choose file</button>
+          <input type="file" id="dxFileInput" accept=".pdf,image/png,image/jpeg,image/webp,image/jpg" style="display:none">
+        </div>
+
+        <!-- Loaded Document Viewer Box (shown after file loaded, takes 100% space) -->
+        <div id="dxViewerBox" class="dx-viewer-box" hidden>
+          <!-- Viewer Toolbar -->
+          <div class="dx-viewer-toolbar">
+            <div class="dx-toolbar-group">
+              <button type="button" id="dxPrevPageBtn" class="dx-btn sm" title="Previous page">‹ Prev</button>
+              <span class="dx-page-counter">
+                <input type="number" id="dxPageInput" min="1" value="1">
+                <span>/</span>
+                <span id="dxTotalPages">1</span>
+              </span>
+              <button type="button" id="dxNextPageBtn" class="dx-btn sm" title="Next page">Next ›</button>
+            </div>
+            <div class="dx-toolbar-group">
+              <button type="button" id="dxZoomOutBtn" class="dx-btn sm" title="Zoom out">−</button>
+              <span id="dxZoomVal" class="dx-zoom-val">100%</span>
+              <button type="button" id="dxZoomInBtn" class="dx-btn sm" title="Zoom in">+</button>
+              <button type="button" id="dxFitWidthBtn" class="dx-btn sm" title="Fit to width">Fit</button>
+            </div>
+            <div class="dx-toolbar-group">
+              <button type="button" id="dxSelectWholeBtn" class="dx-btn sm" title="Select entire page">Select all</button>
+              <button type="button" id="dxClearCropBtn" class="dx-btn sm" title="Clear selection">Clear</button>
+              <button type="button" id="dxChangeFileBtn" class="dx-btn sm danger" title="Load another document">Change file</button>
+            </div>
+          </div>
+
+          <!-- Canvas Stage with Overlay & Resizable Selection Rectangle -->
+          <div id="dxCanvasStage" class="dx-canvas-stage">
+            <div id="dxCanvasContainer" class="dx-canvas-container">
+              <canvas id="dxDocCanvas" class="dx-doc-canvas"></canvas>
+              <div id="dxCropOverlay" class="dx-crop-overlay" style="touch-action:none">
+                <div id="dxCropBoxEl" class="dx-crop-box" hidden>
+                  <div class="dx-crop-handle nw" data-dir="nw"></div>
+                  <div class="dx-crop-handle n" data-dir="n"></div>
+                  <div class="dx-crop-handle ne" data-dir="ne"></div>
+                  <div class="dx-crop-handle e" data-dir="e"></div>
+                  <div class="dx-crop-handle se" data-dir="se"></div>
+                  <div class="dx-crop-handle s" data-dir="s"></div>
+                  <div class="dx-crop-handle sw" data-dir="sw"></div>
+                  <div class="dx-crop-handle w" data-dir="w"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Viewer Status Line & Thumbnail -->
+          <div class="dx-viewer-status-bar">
+            <canvas id="dxCropThumb" class="dx-crop-thumb" width="44" height="44"></canvas>
+            <div class="dx-status-info">
+              <div id="dxStatusText" class="dx-status-text">Selected: whole page</div>
+              <label class="dx-include-crop-label">
+                <input type="checkbox" id="dxIncludeCropCheckbox">
+                <span>Also send picture of selection</span>
+              </label>
+            </div>
+            <button type="button" id="dxQuickTeachBtn" class="dx-btn primary sm" title="Teach this selection directly">Teach Selection ↗</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT COLUMN: Teaching Controls & Topic Recommendations (~46%) -->
+      <main class="dx-teach-col">
+        <!-- 1. Question Box -->
+        <section class="dx-question-card">
+          <div class="dx-question-row">
+            <textarea id="dxQuestionInput" class="dx-question-textarea" rows="3" placeholder="What would you like to understand from this document? (Enter to teach, Shift+Enter for new line)"></textarea>
+            <button type="button" id="dxTeachBtn" class="dx-teach-btn"><span>✦</span> Teach</button>
+          </div>
+          <div class="dx-question-chips-row">
+            <div class="dx-quick-chips">
+              <button type="button" class="dx-chip" data-quick="Explain the key concept from this selection in simple terms">Explain simply</button>
+              <button type="button" class="dx-chip" data-quick="Provide a clear, concrete example illustrating this concept">Give an example</button>
+              <button type="button" class="dx-chip" data-quick="Summarise the core takeaways and formula/definitions">Summarise</button>
+            </div>
+            <div id="dxGroundingLabel" class="dx-grounding-line">Teaching from: current page</div>
+          </div>
+        </section>
+
+        <!-- 2. Recommended Topics (In this document / From your selection) -->
+        <section id="dxTopicsCard" class="dx-topics-card">
+          <div class="dx-topics-group">
+            <span class="dx-topics-tag">From selection:</span>
+            <div id="dxSelectionTopics" class="dx-topics-scroll">
+              <span class="dx-chip-placeholder">Select a region to see AI suggestions...</span>
+            </div>
+          </div>
+          <div class="dx-topics-group">
+            <span class="dx-topics-tag">In document:</span>
+            <div id="dxDocTopics" class="dx-topics-scroll">
+              <span class="dx-chip-placeholder">Document sections will appear here...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Selected text preview (read-only, collapsible) -->
+        <details class="dx-preview-card" id="dxSelectionPreviewCard">
+          <summary class="dx-preview-summary">Selected text preview</summary>
+          <div class="dx-preview-content" id="dxSelectionPreviewText">No active selection. The current page text or selected area will ground the lesson.</div>
+        </details>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- Real-Time Animated AI Whiteboard Tutor -->
 <div class="app" id="lessonApp" hidden>
   <div class="lesson-modebar">
     <button type="button" data-back-home>← Home</button>
+    <button type="button" id="dxBackToDoc" class="dx-btn sm" hidden title="Return to your document" style="margin-right:8px;background:#1d2026;color:#f4f5f8;border:1px solid #363a43;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;">← Back to document</button>
     <span id="lessonModeLabel">AI Whiteboard Tutor</span>
     <button type="button" id="lessonBookmark" class="lesson-bookmark">♧ Save bookmark</button>
     <button type="button" id="recordVideoBtn" hidden style="display:none">● Record video</button>
@@ -122,6 +263,56 @@
         </div>
       </div>
 
+      <!-- Student & Collaborative Drawing Toolbar -->
+      <div class="wb-student-toolbar" id="wbStudentToolbar">
+        <div class="wb-tool-group" role="toolbar" aria-label="Drawing Tools">
+          <button type="button" class="wb-tool-btn active" data-tool="select" title="Select & Move Objects (V)">↖ Select</button>
+          <button type="button" class="wb-tool-btn" data-tool="pen" title="Freehand Pen (P)">✏ Pen</button>
+          <button type="button" class="wb-tool-btn" data-tool="line" title="Straight Line (L)">╱ Line</button>
+          <button type="button" class="wb-tool-btn" data-tool="arrow" title="Vector Arrow (A)">↗ Vector</button>
+          <button type="button" class="wb-tool-btn" data-tool="rect" title="Rectangle (R)">▭ Rect</button>
+          <button type="button" class="wb-tool-btn" data-tool="circle" title="Circle (C)">◯ Circle</button>
+          <button type="button" class="wb-tool-btn" data-tool="text" title="Text / Formula (T)">∑ Math</button>
+          <button type="button" class="wb-tool-btn" data-tool="eraser" title="Eraser (E)">⌫ Erase</button>
+        </div>
+
+        <div class="wb-toolbar-divider"></div>
+
+        <!-- Color Palette -->
+        <div class="wb-color-group">
+          <button type="button" class="wb-color-chip active" data-color="#2563eb" style="background:#2563eb" title="Blue"></button>
+          <button type="button" class="wb-color-chip" data-color="#1e293b" style="background:#1e293b" title="Slate"></button>
+          <button type="button" class="wb-color-chip" data-color="#dc2626" style="background:#dc2626" title="Red"></button>
+          <button type="button" class="wb-color-chip" data-color="#16a34a" style="background:#16a34a" title="Green"></button>
+          <button type="button" class="wb-color-chip" data-color="#ea580c" style="background:#ea580c" title="Orange"></button>
+          <button type="button" class="wb-color-chip" data-color="#9333ea" style="background:#9333ea" title="Purple"></button>
+        </div>
+
+        <!-- Stroke Width -->
+        <select id="wbStrokeWidthSelect" class="wb-select-mini" title="Line Thickness">
+          <option value="2">Thin (2px)</option>
+          <option value="3" selected>Normal (3px)</option>
+          <option value="5">Thick (5px)</option>
+        </select>
+
+        <div class="wb-toolbar-divider"></div>
+
+        <!-- History Actions -->
+        <div class="wb-history-group">
+          <button type="button" id="wbUndoBtn" class="wb-tool-btn-mini" title="Undo (Ctrl+Z)">↶ Undo</button>
+          <button type="button" id="wbRedoBtn" class="wb-tool-btn-mini" title="Redo (Ctrl+Y)">↷ Redo</button>
+          <button type="button" id="wbClearStudentBtn" class="wb-tool-btn-mini danger" title="Clear My Drawings">Clear Mine</button>
+          <button type="button" id="wbClearAllBtn" class="wb-tool-btn-mini danger" title="Clear All Board">Clear All</button>
+        </div>
+
+        <div class="wb-toolbar-spacer"></div>
+
+        <!-- AI Review Trigger -->
+        <button type="button" id="wbCheckDrawingBtn" class="wb-btn-highlight" title="Have AI tutor analyze your drawing & equations">
+          ✨ Check My Work
+        </button>
+      </div>
+
       <div class="whiteboard-canvas-area">
         <svg id="whiteboardSvg" viewBox="0 0 960 700"></svg>
       </div>
@@ -149,7 +340,10 @@
 
     <!-- Right: Reference-Style Teaching Sidebar -->
     <aside class="whiteboard-sidebar">
-      <div class="wb-badge">AI Whiteboard Tutor</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="wb-badge">AI Whiteboard Tutor</div>
+        <div id="wbScaffoldBadge" class="wb-scaffold-pill level-0" title="Adaptive Scaffolding Tutoring Level">Level 0: Concept</div>
+      </div>
       <h2 id="sidebarTitle">Teaching Sequence</h2>
       <div id="sidebarRoadmap" class="wb-topic-roadmap">Topic roadmap will appear here</div>
 
@@ -161,9 +355,17 @@
         </div>
       </div>
 
+      <!-- Quick Socratic Guidance Actions -->
+      <div class="wb-socratic-chips" id="wbSocraticChips">
+        <button type="button" class="wb-chip" data-ask="Give me a hint without revealing the answer">💡 Hint</button>
+        <button type="button" class="wb-chip" data-ask="Break this down step by step">🪜 Step-by-step</button>
+        <button type="button" class="wb-chip" data-ask="Why does this formula or principle apply?">🔍 Why?</button>
+        <button type="button" class="wb-chip" data-ask="Draw this on the board to visualize it">✏️ Draw it</button>
+      </div>
+
       <!-- Live interruption / follow-up input -->
       <div class="wb-interrupt-box">
-        <input id="wbInterruptInput" class="wb-interrupt-input" placeholder="Interrupt: explain that differently, zoom in, why?...">
+        <input id="wbInterruptInput" class="wb-interrupt-input" placeholder="Ask or interrupt: why?, draw this, hint, check my work...">
         <button id="wbMicBtn" class="wb-mic-btn" title="Speak question">🎙</button>
         <button id="wbSendInterrupt" class="wb-btn primary">↗</button>
       </div>
@@ -179,11 +381,14 @@
 </div>
 
 <!-- Load Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="/rough.js"></script>
+<script src="/whiteboard-operations.js"></script>
+<script src="/whiteboard-student.js"></script>
 <script src="/whiteboard-engine.js"></script>
 <script src="/whiteboard-init.js"></script>
-<script>window.NEURA_RELEASE_TIER=2;</script>
 <script src="/hub.js"></script>
+<script src="/docs.js"></script>
 </body></html>
 
 
