@@ -14,7 +14,8 @@ AI Whiteboard Tutor is shown in the interface but locked until Stage 3.
 
 Text Chat uses GROQ_API_KEY. The video tutor and whiteboard lesson service use GEMINI_API_KEY. Add keys only for features enabled in this stage. Keep .env private and do not share it with the ZIP.
 
-The included untime folder provides Node.js for Windows. Keep the terminal window open while using the app.
+The included 
+untime folder provides Node.js for Windows. Keep the terminal window open while using the app.
 
 ## Feature progression
 
