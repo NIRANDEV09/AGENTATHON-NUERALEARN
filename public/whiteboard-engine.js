@@ -8,6 +8,13 @@ class WhiteboardRenderer {
     this.elements = new Map();
     this.stepHistory = []; // array of Set(elementIds) added in each step
     this.activeAnimations = [];
+    this.pageHeights = [700];
+    this.pageTops = [0];
+    this.pageLabels = [];
+    this.pageBackgrounds = new Map();
+    this.lastPageSteps = [];
+    this.currentPage = 0;
+    this.maxPage = 0;
     this.sketchMode = true; // Default to authentic hand-drawn whiteboard sketch
     this.rc = null;
     this.initSvg();
@@ -16,8 +23,10 @@ class WhiteboardRenderer {
   initSvg() {
     if (!this.svg) return;
     this.svg.innerHTML = '';
-    this.svg.setAttribute('viewBox', '0 0 960 700');
-    this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    const totalHeight = this.pageHeights.reduce((sum, height) => sum + height, 0) || 700;
+    this.svg.setAttribute('viewBox', `0 0 960 ${totalHeight}`);
+    this.svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+    this.svg.style.height = 'auto';
     this.svg.classList.add('wb-sketch-canvas');
 
     // Create defs with arrow markers, gradients, and filters
@@ -86,7 +95,109 @@ class WhiteboardRenderer {
 
   clear() {
     this.cancelAnimations();
+    this.currentPage = 0;
+    this.maxPage = 0;
+    this.pageHeights = [700];
+    this.pageTops = [0];
+    this.pageLabels = [];
+    this.pageBackgrounds = new Map();
+    this.lastPageSteps = [];
     this.initSvg();
+  }
+
+  updatePages(steps = this.lastPageSteps) {
+    this.lastPageSteps = Array.isArray(steps) ? steps : [];
+    const pages = Math.max(0, ...this.lastPageSteps.map(step => Math.floor(Number(step.page) || 0)));
+    this.maxPage = pages;
+    this.pageHeights = [];
+    this.pageTops = [];
+    this.pageLabels = [];
+    let top = 0;
+
+    for (let page = 0; page <= pages; page++) {
+      const pageSteps = this.lastPageSteps.filter(step => (Math.floor(Number(step.page) || 0)) === page);
+      let contentBottom = 0;
+      let pageLabel = '';
+      for (const step of pageSteps) {
+        if (step.pageTitle) pageLabel = step.pageTitle;
+        const actions = Array.isArray(step.actions) ? step.actions : (Array.isArray(step.visuals) ? step.visuals : []);
+        for (const action of actions) {
+          const op = String(action?.op || action?.type || '').toLowerCase();
+          const y = key => action[key] === undefined ? 0 : this.normalizeY(action[key]);
+          let bottom = Math.max(y('y'), y('cy'), y('y1'), y('y2'));
+          if (op === 'draw_rect' || op === 'rect') bottom = y('y') + this.normalizeY(action.height || action.h || action.w || 50);
+          else if (op === 'draw_circle' || op === 'circle' || op === 'dot') bottom = y('cy') + Number(action.r || action.radius || action.w || 20);
+          else if (op === 'draw_path' && action.d) {
+            const nums = String(action.d).match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+            for (let i = 1; i < nums.length; i += 2) bottom = Math.max(bottom, nums[i]);
+          } else if (op === 'draw_text' || op === 'draw_formula' || op === 'text') bottom = y('y');
+          contentBottom = Math.max(contentBottom, bottom);
+        }
+      }
+
+      const headingSpace = page > 0 ? 96 : 0;
+      const height = Math.max(480, Math.ceil(contentBottom + headingSpace + 84));
+      this.pageTops[page] = top;
+      this.pageHeights[page] = height;
+      this.pageLabels[page] = pageLabel || (page ? `INTERRUPTION CLARIFICATION · PAGE ${page + 1}` : '');
+      top += height;
+    }
+
+    for (let page = 1; page <= pages; page++) {
+      const y = this.pageTops[page];
+      let elements = this.pageBackgrounds.get(page);
+      if (!elements) {
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('id', `wb_page_${page}_background`);
+        bg.setAttribute('x', '0');
+        bg.setAttribute('width', '960');
+        bg.setAttribute('fill', '#fffefb');
+        bg.setAttribute('stroke', '#d8d4c9');
+        bg.setAttribute('stroke-width', '2');
+        this.gBase.appendChild(bg);
+
+        const divider = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        divider.setAttribute('stroke', '#dedbd2');
+        divider.setAttribute('stroke-width', '2');
+        this.gBase.appendChild(divider);
+
+        const heading = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        heading.setAttribute(`id`, `wb_page_${page}_heading`);
+        heading.setAttribute('x', '48');
+        heading.setAttribute('fill', '#65717c');
+        heading.setAttribute('font-size', '20');
+        heading.setAttribute('font-weight', '700');
+        heading.setAttribute('font-family', 'Inter, system-ui, sans-serif');
+        this.gText.appendChild(heading);
+        elements = { bg, divider, heading };
+        this.pageBackgrounds.set(page, elements);
+      }
+      elements.bg.setAttribute('y', String(y));
+      elements.bg.setAttribute('height', String(this.pageHeights[page]));
+      elements.divider.setAttribute('d', `M 36 ${y + 76} L 924 ${y + 76}`);
+      elements.heading.setAttribute('y', String(y + 46));
+      elements.heading.textContent = this.pageLabels[page];
+    }
+
+    this.svg.setAttribute('viewBox', `0 0 960 ${top || 700}`);
+  }
+
+  setPage(page, label = '', steps = this.lastPageSteps) {
+    const targetPage = Math.max(0, Math.floor(Number(page) || 0));
+    if (label && this.lastPageSteps.length) {
+      this.lastPageSteps.forEach(step => {
+        if ((Math.floor(Number(step.page) || 0)) === targetPage) step.pageTitle = label;
+      });
+    }
+    this.updatePages(steps);
+    this.currentPage = targetPage;
+  }
+
+  scrollToPage(page) {
+    const container = this.svg?.parentElement;
+    if (!container) return;
+    const pageTop = (container.clientWidth / 960) * (this.pageTops[Math.max(0, Number(page) || 0)] || 0);
+    container.scrollTo({ top: pageTop, behavior: 'smooth' });
   }
 
   cancelAnimations() {
@@ -123,7 +234,17 @@ class WhiteboardRenderer {
   // Execute an action immediately or with animation
   executeAction(action, animated = true) {
     if (!action || typeof action !== 'object') return;
+    const pageOffsetY = this.pageTops[this.currentPage] || 0;
+    if (pageOffsetY) {
+      action = { ...action, _pageOffsetY: pageOffsetY };
+      ['y', 'cy', 'y1', 'y2', 'fromY', 'toY'].forEach(key => {
+        if (action[key] !== undefined) action[key] = this.normalizeY(action[key]) + pageOffsetY;
+      });
+    }
     const op = String(action.op || action.type || 'reveal').toLowerCase();
+    // Interruption pages must be self-contained; never let an AI patch clear or
+    // mutate marks on an earlier page through a legacy highlight/clear action.
+    if (this.currentPage > 0 && ['highlight', 'pulse', 'clear'].includes(op)) return;
     const id = action.id || ('el_' + Math.random().toString(36).substr(2, 9));
 
     // Handle legacy 'visuals' format
@@ -194,6 +315,7 @@ class WhiteboardRenderer {
           hachureAngle: -35
         });
         g.setAttribute('id', id);
+        if (action._pageOffsetY) g.setAttribute('transform', `translate(0 ${action._pageOffsetY})`);
         g.classList.add('wb-sketch-elem');
 
         let old = this.elements.get(id);
@@ -248,6 +370,7 @@ class WhiteboardRenderer {
     el.setAttribute('stroke-linecap', 'round');
     el.setAttribute('stroke-linejoin', 'round');
     el.setAttribute('fill', action.fill || 'none');
+    if (action._pageOffsetY) el.setAttribute('transform', `translate(0 ${action._pageOffsetY})`);
 
     if (action.strokeDasharray) {
       el.setAttribute('stroke-dasharray', action.strokeDasharray);
@@ -867,8 +990,10 @@ class WhiteboardRenderer {
   // Restore state up to a specific step index
   renderUpToStep(steps, upToStepIndex) {
     this.clear();
+    this.updatePages(steps);
     for (let s = 0; s <= upToStepIndex && s < steps.length; s++) {
       const seg = steps[s];
+      this.setPage(seg.page || 0, seg.pageTitle || '', steps);
       const actions = Array.isArray(seg.actions) ? seg.actions : (Array.isArray(seg.visuals) ? seg.visuals : []);
       actions.forEach(action => this.executeAction(action, false));
     }
@@ -934,6 +1059,7 @@ class WhiteboardPlaybackController {
 
     this.renderTranscriptSidebar();
     this.renderer.clear();
+    this.renderer.updatePages(this.steps);
     this.updateControls();
 
     if (this.quizBox) this.quizBox.style.display = 'none';
@@ -984,6 +1110,8 @@ class WhiteboardPlaybackController {
     const token = this.activeStepToken;
 
     const step = this.steps[index];
+    this.renderer.setPage(step.page || 0, step.pageTitle || '', this.steps);
+    this.renderer.scrollToPage(step.page || 0);
     this.updateControls();
 
     // 1. Highlight active transcript card and scroll into view
@@ -1017,9 +1145,11 @@ class WhiteboardPlaybackController {
   }
 
   speakNarration(text) {
-    if (this.isMuted || !('speechSynthesis' in window) || !text) {
+    if (this.isMuted || !text) {
       return Promise.resolve();
     }
+    if (window.NeuraVoice) return NeuraVoice.speak(text, document.getElementById('language')?.value || 'English', this.voiceRate || 1);
+    if (!('speechSynthesis' in window)) return Promise.resolve();
 
     window.speechSynthesis.cancel();
     return new Promise(resolve => {
@@ -1054,12 +1184,15 @@ class WhiteboardPlaybackController {
   pause() {
     this.isPaused = true;
     this.isPlaying = false;
-    if ('speechSynthesis' in window) window.speechSynthesis.pause();
+    if (window.NeuraVoice) NeuraVoice.pause(); else if ('speechSynthesis' in window) window.speechSynthesis.pause();
     this.updateControls();
     if (this.statusEl) this.statusEl.textContent = 'Paused. You can resume, seek, or ask a question.';
   }
 
   resume() {
+    if (window.NeuraVoice && NeuraVoice.active() && NeuraVoice.paused()) {
+      NeuraVoice.resume(); this.isPaused = false; this.isPlaying = true; this.updateControls(); return;
+    }
     if ('speechSynthesis' in window && window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
       this.isPaused = false;
@@ -1113,7 +1246,7 @@ class WhiteboardPlaybackController {
   }
 
   stopSpeech() {
-    if ('speechSynthesis' in window) {
+    if (window.NeuraVoice) NeuraVoice.stop(); else if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     this.currentUtterance = null;
@@ -1196,7 +1329,10 @@ class WhiteboardPlaybackController {
         body: JSON.stringify({
           concept: conceptText || this.lesson?.title || '',
           title: this.lesson?.title || '',
+          language: document.getElementById('language')?.value || 'English',
+          currentHeading: this.steps[this.currentIndex]?.heading || '',
           recentNarration,
+          upcomingLesson: this.steps.slice(this.currentIndex + 1, this.currentIndex + 4).map(step => ({ heading: step.heading || '', narration: step.narration || '' })),
           currentVisuals: currentActions.slice(-20),
           command
         })
@@ -1205,21 +1341,56 @@ class WhiteboardPlaybackController {
       const patch = await res.json();
       if (!res.ok) throw new Error(patch.error || 'Adaptation failed');
 
-      if (patch.acknowledgement) {
-        if (this.statusEl) this.statusEl.textContent = patch.acknowledgement;
-        await this.speakNarration(patch.acknowledgement);
-      }
-
       const newSegments = Array.isArray(patch.segments) ? patch.segments : [];
       if (!newSegments.length) throw new Error('No clarification segments returned.');
+      const newPage = (this.renderer?.maxPage || 0) + 1;
+      const pageTitle = `INTERRUPTION CLARIFICATION · ${command.replace(/\s+/g, ' ').slice(0, 72)}`;
+      newSegments.forEach(segment => {
+        segment.page = newPage;
+        segment.pageTitle = pageTitle;
+      });
 
-      if (patch.strategy === 'replace') {
-        this.steps = newSegments;
-        this.currentIndex = 0;
-      } else {
-        // Append right after current step
-        this.steps.splice(this.currentIndex + 1, 0, ...newSegments);
+      // Some model replies contain narration and labels but no drawable geometry.
+      // Add a compact, animated concept-to-explanation diagram so interruptions
+      // always produce something visible on the board.
+      newSegments.forEach((segment, index) => {
+        const actions = Array.isArray(segment.actions) ? segment.actions : (Array.isArray(segment.visuals) ? segment.visuals : []);
+        segment.actions = actions;
+        const geometryCount = actions.filter(action => {
+          const op = String(action?.op || action?.type || '').toLowerCase();
+          return (op === 'draw_path' && String(action.d || '').trim()) ||
+            ['draw_rect', 'draw_circle', 'draw_arrow', 'draw_line'].includes(op);
+        }).length;
+        if (geometryCount >= 2) return;
+
+        const id = `interrupt_fallback_${Date.now()}_${index}`;
+        const shortLabel = value => String(value || '').replace(/\s+/g, ' ').trim().slice(0, 26) || 'Key idea';
+        const leftLabel = shortLabel(command);
+        const rightLabel = shortLabel(segment.heading || segment.narration || patch.acknowledgement);
+        const nextDelay = actions.reduce((max, action) => Math.max(max, Number(action?.delay) || 0), 0) + 150;
+        actions.push(
+          { op: 'draw_rect', id: `${id}_left`, x: 85, y: 170, width: 330, height: 115, stroke: '#2b72b8', strokeWidth: 3, fill: '#eff6ff', delay: nextDelay },
+          { op: 'draw_text', id: `${id}_left_label`, x: 250, y: 227, text: leftLabel, color: '#22262b', fontSize: 19, fontWeight: 'bold', anchor: 'middle', delay: nextDelay + 150 },
+          { op: 'draw_arrow', id: `${id}_link`, x1: 435, y1: 227, x2: 515, y2: 227, stroke: '#e3a83e', strokeWidth: 4, delay: nextDelay + 350 },
+          { op: 'draw_rect', id: `${id}_right`, x: 535, y: 170, width: 330, height: 115, stroke: '#2ea44f', strokeWidth: 3, fill: '#f0fdf4', delay: nextDelay + 500 },
+          { op: 'draw_text', id: `${id}_right_label`, x: 700, y: 227, text: rightLabel, color: '#22262b', fontSize: 19, fontWeight: 'bold', anchor: 'middle', delay: nextDelay + 650 }
+        );
+      });
+
+      if (patch.acknowledgement) {
+        if (this.statusEl) this.statusEl.textContent = patch.acknowledgement;
+        const firstNarration = String(newSegments[0].narration || '').trim();
+        newSegments[0].narration = firstNarration
+          ? `${patch.acknowledgement} ${firstNarration}`
+          : patch.acknowledgement;
       }
+
+      // Keep all earlier lesson pages and place the interruption below them.
+      // The clarification replaces upcoming playback while preserving its marks.
+      this.steps.splice(this.currentIndex + 1, this.steps.length, ...newSegments);
+
+      this.renderer.updatePages(this.steps);
+      this.renderer.setPage(newPage, pageTitle, this.steps);
 
       this.renderTranscriptSidebar();
       this.playStep(this.currentIndex + 1);
