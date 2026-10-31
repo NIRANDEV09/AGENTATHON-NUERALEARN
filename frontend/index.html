@@ -24,7 +24,6 @@
       color: var(--hub-ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
-      overflow-x: hidden;
       line-height: 1.45;
     }
     button, input, textarea, select {
@@ -34,7 +33,9 @@
       cursor: pointer;
     }
 
-    /* Hub Layout */
+    /* ========================================================
+       1. HOME LANDING DASHBOARD
+       ======================================================== */
     .hub-shell {
       position: fixed;
       inset: 0;
@@ -155,11 +156,6 @@
       gap: 12px;
       color: #383a3e;
       background: #fff;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .hub-search:focus-within {
-      border-color: #8ea9c4;
-      box-shadow: 0 0 0 3px rgba(112, 141, 187, 0.12);
     }
     .hub-search > span {
       font-size: 20px;
@@ -183,9 +179,6 @@
       border: 0;
       color: #6d737d;
       font-size: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
     .hub-account {
       display: flex;
@@ -203,7 +196,6 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      cursor: pointer;
     }
     .hub-avatar {
       width: 32px;
@@ -336,12 +328,10 @@
       place-items: center;
       color: #24272c;
       font-size: 15px;
-      transition: background 0.15s, transform 0.15s;
     }
     .mode-card:hover .card-arrow {
       background: #17191c;
       color: #fff;
-      transform: translateX(2px);
     }
     .mode-card > strong {
       font-size: 17px;
@@ -485,7 +475,7 @@
       font-size: 9.5px;
     }
 
-    /* Subpages: Bookmarks, Settings, etc. */
+    /* Subpages */
     .hub-subpage {
       max-width: 860px;
       margin: 40px auto;
@@ -495,19 +485,11 @@
     .hub-subpage[hidden] {
       display: none !important;
     }
-    .hub-subpage-head {
-      margin-bottom: 24px;
-    }
     .hub-subpage-head h1 {
       font-size: 30px;
       letter-spacing: -0.8px;
       margin: 0 0 8px;
       color: #15171b;
-    }
-    .hub-subpage-head > p:last-child {
-      color: #737984;
-      font-size: 13px;
-      margin: 0;
     }
     .hub-bookmark-list {
       display: grid;
@@ -519,40 +501,6 @@
       border-radius: 14px;
       padding: 20px;
       box-shadow: 0 3px 12px rgba(24, 26, 29, 0.04);
-    }
-    .hub-bookmark-card h2 {
-      font-size: 16px;
-      margin: 0 0 6px;
-    }
-    .hub-bookmark-card p {
-      color: #575c64;
-      margin: 0 0 10px;
-      font-size: 13px;
-    }
-    .hub-bookmark-card small {
-      font-size: 11px;
-      color: #858a92;
-    }
-    .hub-bookmark-actions, .hub-settings-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 14px;
-      flex-wrap: wrap;
-    }
-    .hub-bookmark-actions button, .hub-save-settings {
-      border: 1px solid #d6d8dc;
-      border-radius: 8px;
-      background: #fff;
-      color: #17191d;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .hub-bookmark-actions button:first-child, .hub-save-settings {
-      background: #111215;
-      color: #fff;
-      border-color: #111215;
     }
     .hub-settings-form {
       max-width: 580px;
@@ -571,33 +519,743 @@
       border: 1px solid #d8dade;
       border-radius: 8px;
       background: #fff;
-      color: #191b20;
       padding: 0 12px;
-      font: inherit;
     }
-    .hub-settings-form > p {
-      margin: 0;
-      color: #797e86;
+    .hub-save-settings {
+      background: #111215;
+      color: #fff;
+      border: 1px solid #111215;
+      padding: 8px 16px;
+      border-radius: 8px;
       font-size: 12px;
-      line-height: 1.6;
-    }
-    .hub-empty {
-      border: 1px dashed #d8dade;
-      border-radius: 12px;
-      padding: 24px;
-      color: #717680;
-      font-size: 13px;
-      text-align: center;
     }
 
-    /* Demo Views: Chat View */
+    /* ========================================================
+       2. WHITEBOARD VIEW (IMAGE 1: JEE NLM PULLEY & FBD)
+       ======================================================== */
+    .wb-view {
+      position: fixed;
+      inset: 0;
+      background: #fbfaf5;
+      color: #151719;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      overflow-y: auto;
+    }
+    .wb-view[hidden] {
+      display: none !important;
+    }
+
+    /* Top Dark Control Panel */
+    .wb-top-panel {
+      background: #0e1014;
+      color: #eaedf2;
+      padding: 14px 24px 12px;
+      border-bottom: 1px solid #232730;
+    }
+    .wb-input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(180px, 1fr) minmax(220px, 1.2fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .wb-field-col label {
+      display: block;
+      color: #8b929e;
+      font-size: 11px;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .wb-question-textarea {
+      width: 100%;
+      height: 64px;
+      background: #17191e;
+      border: 1px solid #2e333d;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 11.5px;
+      line-height: 1.45;
+      padding: 8px 10px;
+      resize: none;
+      outline: 0;
+    }
+    .wb-attach-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      background: #1c1f26;
+      border: 1px solid #323743;
+      border-radius: 6px;
+      color: #a4acba;
+      font-size: 10px;
+      padding: 5px 9px;
+    }
+    .wb-select-box {
+      width: 100%;
+      height: 34px;
+      background: #17191e;
+      border: 1px solid #2e333d;
+      border-radius: 6px;
+      color: #eaedf2;
+      font-size: 11px;
+      padding: 0 8px;
+      outline: 0;
+      margin-bottom: 6px;
+    }
+    .wb-pref-input {
+      width: 100%;
+      height: 34px;
+      background: #17191e;
+      border: 1px solid #2e333d;
+      border-radius: 6px;
+      color: #eaedf2;
+      font-size: 11px;
+      padding: 0 10px;
+      outline: 0;
+      margin-bottom: 8px;
+    }
+    .wb-build-btn {
+      width: 100%;
+      height: 34px;
+      background: #c6f36a;
+      border: 0;
+      border-radius: 6px;
+      color: #111409;
+      font-weight: 750;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .wb-build-btn:hover {
+      background: #d5ff80;
+    }
+
+    /* Sample topics chip bar */
+    .wb-chips-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #1f232b;
+      font-size: 11px;
+    }
+    .wb-chips-label {
+      color: #79808d;
+      font-size: 10.5px;
+      margin-right: 4px;
+    }
+    .wb-chip {
+      background: #17191f;
+      border: 1px solid #2e333e;
+      color: #b1b8c4;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 10px;
+      transition: all 0.15s;
+    }
+    .wb-chip.active {
+      background: #1e3352;
+      border-color: #3b82f6;
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    /* Subheader bar */
+    .wb-subbar {
+      background: #f4f3ed;
+      border-bottom: 1px solid #e6e3da;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex: none;
+    }
+    .wb-subbar-info h2 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #1d2026;
+      margin: 0;
+    }
+    .wb-subbar-info small {
+      color: #7b818d;
+      font-size: 11px;
+    }
+    .wb-subbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wb-btn {
+      background: #fff;
+      border: 1px solid #d4d1c7;
+      color: #272a31;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 550;
+    }
+    .wb-btn:hover {
+      background: #fdfdfd;
+      border-color: #b5b1a6;
+    }
+    .wb-btn.home-btn {
+      background: #111215;
+      color: #fff;
+      border-color: #111215;
+    }
+    .wb-pill-step {
+      background: #e9e7de;
+      border: 1px solid #d8d5cb;
+      padding: 5px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      color: #4a505b;
+      font-weight: 600;
+    }
+
+    /* Whiteboard Main Workspace Grid */
+    .wb-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      min-height: 580px;
+      background: #fbfaf5;
+    }
+    .wb-canvas-container {
+      padding: 28px 36px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-right: 1px solid #e8e5db;
+    }
+    .wb-board-title {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .wb-board-title h1 {
+      font-family: Georgia, Cambria, "Times New Roman", serif;
+      font-size: 23px;
+      font-weight: 700;
+      color: #1a1c22;
+      margin: 0 0 6px;
+    }
+    .wb-board-title p {
+      font-family: Georgia, Cambria, serif;
+      font-size: 13.5px;
+      color: #636873;
+    }
+    .wb-svg-frame {
+      width: 100%;
+      max-width: 760px;
+      min-height: 380px;
+      background: #fbfaf5;
+    }
+
+    /* Right Teaching Sequence Panel */
+    .wb-sequence-panel {
+      background: #fff;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .wb-panel-eyebrow {
+      color: #2563eb;
+      font-size: 9.5px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-weight: 750;
+    }
+    .wb-sequence-panel h3 {
+      font-size: 17px;
+      font-weight: 750;
+      color: #17191d;
+      margin: 0;
+    }
+    .wb-seq-summary {
+      font-size: 11px;
+      color: #727885;
+      line-height: 1.4;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f0edf4;
+    }
+    .wb-step-card {
+      border: 1px solid #e3e6ed;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .wb-step-card:hover {
+      border-color: #2563eb;
+    }
+    .wb-step-card.active {
+      border: 2px solid #2563eb;
+      background: #f8faff;
+    }
+    .wb-step-tag {
+      font-size: 10px;
+      font-weight: 750;
+      color: #2563eb;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .wb-step-desc {
+      font-size: 11.5px;
+      color: #434752;
+      line-height: 1.5;
+    }
+
+    /* ========================================================
+       3. AI VIDEO EXPLAINER VIEW (IMAGE 2: OHM'S LAW PART 1)
+       ======================================================== */
+    .ve-view {
+      position: fixed;
+      inset: 0;
+      background: #fbfbfc;
+      color: #151719;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      overflow-y: auto;
+    }
+    .ve-view[hidden] {
+      display: none !important;
+    }
+
+    /* Top Black Navigation Bar */
+    .ve-top-bar {
+      height: 44px;
+      background: #111215;
+      color: #f5f5f7;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 18px;
+      font-size: 12px;
+      flex: none;
+    }
+    .ve-top-bar button {
+      border: 1px solid #373a40;
+      background: #202227;
+      color: #fff;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+    .ve-top-bar span {
+      color: #9ea3ab;
+      font-size: 12px;
+    }
+    .ve-top-bar .ve-save-btn {
+      margin-left: auto;
+    }
+
+    /* Search Header Bar */
+    .ve-search-header {
+      height: 62px;
+      background: #fff;
+      border-bottom: 1px solid #eceef0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      gap: 20px;
+      flex: none;
+    }
+    .ve-search-box {
+      width: min(480px, 60%);
+      height: 38px;
+      border: 1px solid #dfe1e5;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+    }
+    .ve-search-box input {
+      border: 0;
+      outline: 0;
+      width: 100%;
+      background: transparent;
+      font-size: 12px;
+      color: #24272c;
+    }
+    .ve-top-right-tools {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ve-model-pill {
+      border: 1px solid #dfe1e5;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 550;
+      color: #373b43;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+    }
+    .ve-model-pill .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    .ve-avatar-s {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0d9488;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Explainer Workspace */
+    .ve-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      background: #fff;
+    }
+    .ve-content-col {
+      padding: 20px 28px 36px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #eceef0;
+      overflow-y: auto;
+    }
+    .ve-breadcrumbs {
+      font-size: 11px;
+      color: #787f8c;
+      margin-bottom: 6px;
+    }
+    .ve-breadcrumbs a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .ve-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .ve-live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.1em;
+      color: #17191d;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .ve-live-badge i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #111;
+      display: inline-block;
+    }
+    .ve-title-row h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #17191d;
+      margin: 0;
+    }
+    .ve-meta-pills {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .ve-meta-pill {
+      border: 1px solid #e2e4e8;
+      border-radius: 16px;
+      padding: 4px 10px;
+      font-size: 10.5px;
+      color: #555c68;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .ve-line-nav {
+      font-size: 11px;
+      color: #636974;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ve-line-nav button {
+      border: 1px solid #dfe1e5;
+      background: #fff;
+      border-radius: 4px;
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+    }
+
+    /* Circuit / Code Area */
+    .ve-canvas-tabs-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 16px 0 10px;
+    }
+    .ve-mode-tabs {
+      display: flex;
+      gap: 4px;
+      background: #f1f2f4;
+      padding: 3px;
+      border-radius: 8px;
+    }
+    .ve-mode-tabs button {
+      border: 0;
+      background: transparent;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 550;
+      color: #555b65;
+    }
+    .ve-mode-tabs button.active {
+      background: #fff;
+      color: #17191d;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .ve-canvas-zoom {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #6d737e;
+    }
+    .ve-canvas-box {
+      background: #0f131a;
+      border: 1px solid #232a36;
+      border-radius: 14px;
+      min-height: 480px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    .ve-svg-circuit {
+      width: 88%;
+      height: auto;
+      max-height: 400px;
+    }
+
+    /* Floating tool palette */
+    .ve-floating-palette {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(25, 30, 40, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid #2e3748;
+      border-radius: 20px;
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+    .ve-palette-btn {
+      background: transparent;
+      border: 0;
+      color: #9da6b8;
+      font-size: 14px;
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+    }
+    .ve-color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+    }
+    .ve-color-dot.active {
+      border-color: #fff;
+    }
+
+    /* Right AI Tutor Sidebar */
+    .ve-tutor-sidebar {
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: #fff;
+      overflow-y: auto;
+    }
+    .ve-tutor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ve-tutor-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ve-tutor-brand strong {
+      font-size: 14px;
+      color: #17191d;
+    }
+    .ve-tutor-brand small {
+      font-size: 11px;
+      color: #7b818d;
+    }
+    .ve-toggle-verified {
+      background: #f8f9fa;
+      border: 1px solid #e7eaed;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ve-toggle-verified b {
+      font-size: 11.5px;
+      color: #191c22;
+      display: block;
+    }
+    .ve-toggle-verified small {
+      font-size: 10px;
+      color: #787f8d;
+    }
+    .ve-switch {
+      width: 32px;
+      height: 18px;
+      border-radius: 10px;
+      background: #111215;
+      position: relative;
+      cursor: pointer;
+    }
+    .ve-switch::after {
+      content: '';
+      position: absolute;
+      right: 2px;
+      top: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .ve-lesson-card {
+      border: 1px solid #e7eaee;
+      border-radius: 10px;
+      padding: 14px;
+      background: #fff;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #40454f;
+    }
+    .ve-lesson-card h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #17191d;
+      margin: 0 0 6px;
+    }
+    .ve-highlight-snippet {
+      background: #fef9c3;
+      color: #1c1f24;
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-weight: 500;
+    }
+    .ve-stream-note {
+      font-size: 10px;
+      color: #8b929e;
+      font-style: italic;
+    }
+
+    .ve-token-stats {
+      font-size: 10px;
+      color: #8b929e;
+      line-height: 1.4;
+    }
+    .ve-pdf-box {
+      border: 1px solid #e7eaee;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: #272a31;
+    }
+    .ve-pdf-box small {
+      display: block;
+      color: #8a909b;
+      font-size: 10px;
+    }
+    .ve-chat-compose {
+      margin-top: auto;
+      border: 1px solid #dfe1e5;
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ve-chat-compose input {
+      border: 0;
+      outline: 0;
+      width: 100%;
+      font-size: 11.5px;
+    }
+    .ve-chat-compose button {
+      border: 0;
+      background: #111215;
+      color: #fff;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+
+    /* ========================================================
+       4. TEXT CHAT VIEW
+       ======================================================== */
     .chat-view {
       position: fixed;
       inset: 0;
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);
       background: #fff;
-      z-index: 20;
+      z-index: 30;
     }
     .chat-view[hidden] {
       display: none !important;
@@ -609,9 +1267,6 @@
       flex-direction: column;
       padding: 20px 12px 16px;
     }
-    .chat-sidebar .hub-brand {
-      padding: 0 8px 20px;
-    }
     .chat-new {
       border: 1px solid #373a40;
       background: #1b1d21;
@@ -621,12 +1276,6 @@
       text-align: left;
       font-size: 12px;
       margin-bottom: 20px;
-    }
-    .chat-sidebar > p {
-      margin: 10px 8px 8px;
-      color: #888e97;
-      font-size: 9px;
-      letter-spacing: 0.15em;
     }
     .chat-recent {
       display: grid;
@@ -660,15 +1309,10 @@
       padding: 9px;
       text-align: center;
     }
-    .chat-side-bottom button:hover {
-      background: #282a2f;
-      color: #fff;
-    }
     .chat-main {
       display: flex;
       flex-direction: column;
       height: 100%;
-      min-width: 0;
       background: #fff;
     }
     .chat-top {
@@ -690,16 +1334,6 @@
       font-size: 12px;
       font-weight: 500;
     }
-    .chat-model {
-      margin-left: auto;
-      margin-right: 16px;
-      border: 1px solid #e8e9eb;
-      border-radius: 20px;
-      padding: 6px 12px;
-      color: #555b65;
-      font-size: 11px;
-      background: #fbfbfc;
-    }
     .chat-messages {
       overflow-y: auto;
       flex: 1;
@@ -720,17 +1354,6 @@
       color: #738ead;
       font-size: 20px;
     }
-    .chat-welcome h1 {
-      font-size: 28px;
-      font-weight: 550;
-      letter-spacing: -0.6px;
-      margin: 16px 0 8px;
-    }
-    .chat-welcome p {
-      color: #777d87;
-      font-size: 13.5px;
-      margin: 0;
-    }
     .chat-suggestions {
       display: flex;
       flex-wrap: wrap;
@@ -745,13 +1368,6 @@
       color: #4e545c;
       padding: 9px 15px;
       font-size: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-      transition: all 0.15s;
-    }
-    .chat-suggestions button:hover {
-      background: #f5f6f8;
-      border-color: #ccd0d6;
-      color: #17191d;
     }
     .chat-msg {
       max-width: 760px;
@@ -774,13 +1390,6 @@
       padding: 12px 18px;
       border-radius: 18px;
       max-width: 75%;
-      color: #1a1c20;
-    }
-    .chat-msg.assistant .chat-bubble {
-      padding: 6px 0;
-      max-width: 100%;
-      width: 100%;
-      color: #24272d;
     }
     .chat-msg.assistant .chat-role {
       width: 30px;
@@ -803,7 +1412,6 @@
       margin: auto;
       border: 1px solid #dfe1e5;
       border-radius: 20px;
-      box-shadow: 0 4px 18px rgba(28, 40, 50, 0.05);
       padding: 10px 14px 8px;
       display: flex;
       flex-direction: column;
@@ -817,7 +1425,6 @@
       font: 14px/1.5 inherit;
       max-height: 140px;
       min-height: 36px;
-      color: #24272c;
     }
     .composer-foot {
       display: flex;
@@ -838,215 +1445,13 @@
       display: grid;
       place-items: center;
     }
-
-    /* Demo Views: Video Explainer / Canvas View */
-    .demo-view {
-      position: fixed;
-      inset: 0;
-      background: #fbfaf5;
-      display: flex;
-      flex-direction: column;
-      z-index: 20;
-    }
-    .demo-view[hidden] {
-      display: none !important;
-    }
-    .demo-topbar {
-      height: 54px;
-      flex: none;
-      background: #111215;
-      color: #f5f5f7;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 0 20px;
-      font-size: 13px;
-    }
-    .demo-topbar button {
-      border: 1px solid #373a40;
-      background: #202227;
-      color: #fff;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-    .demo-topbar span {
-      color: #adb2ba;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .demo-canvas-wrap {
-      flex: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
-      gap: 16px;
-      padding: 20px;
-      overflow: hidden;
-      background: #090a0c;
-    }
-    .demo-board {
-      background: #fbfaf5;
-      border-radius: 14px;
-      border: 1px solid #272a30;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .demo-board-head {
-      border-bottom: 1px solid #e2dfd5;
-      padding: 12px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #fff;
-    }
-    .demo-board-head h2 {
-      font-size: 15px;
-      margin: 0;
-      color: #17191d;
-    }
-    .demo-board-body {
-      flex: 1;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-    .demo-side {
-      background: #111317;
-      border: 1px solid #272a30;
-      border-radius: 14px;
-      padding: 18px;
-      color: #f4f5f7;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .demo-side h3 {
-      font-size: 16px;
-      margin: 0;
-      color: #c6f36a;
-    }
-    .demo-side p {
-      font-size: 13px;
-      color: #9ba1ad;
-      line-height: 1.5;
-    }
-    .demo-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: #1b1d22;
-      border: 1px solid #333740;
-      color: #c6f36a;
-      font-size: 11px;
-      margin-bottom: 8px;
-    }
-
-    /* Responsive */
-    @media (max-width: 960px) {
-      .hub-shell {
-        grid-template-columns: 72px minmax(0, 1fr);
-      }
-      .hub-sidebar {
-        padding: 20px 8px;
-      }
-      .hub-brand {
-        justify-content: center;
-        padding: 0 0 24px;
-        font-size: 0;
-      }
-      .hub-logo {
-        font-size: 18px;
-      }
-      .hub-nav button {
-        justify-content: center;
-        padding: 10px 7px;
-        font-size: 0;
-      }
-      .hub-nav button span {
-        font-size: 18px;
-      }
-      .hub-tagline {
-        display: none;
-      }
-      .hub-cards {
-        padding: 0 20px;
-        gap: 12px;
-      }
-      .hub-hero {
-        padding: 0 20px;
-      }
-      .hub-doodle {
-        display: none;
-      }
-      .demo-canvas-wrap {
-        grid-template-columns: 1fr;
-      }
-      .demo-side {
-        display: none;
-      }
-    }
-    @media (max-width: 680px) {
-      .hub-shell {
-        grid-template-columns: 1fr;
-        grid-template-rows: 56px minmax(0, 1fr);
-      }
-      .hub-sidebar {
-        grid-row: 1;
-        flex-direction: row;
-        align-items: center;
-        padding: 6px 12px;
-      }
-      .hub-sidebar .hub-brand {
-        padding: 0;
-        font-size: 14px;
-      }
-      .hub-nav {
-        display: flex;
-        gap: 4px;
-        margin-left: auto;
-      }
-      .hub-nav button {
-        padding: 8px;
-      }
-      .hub-main {
-        grid-row: 2;
-        height: calc(100vh - 56px);
-      }
-      .hub-topbar {
-        height: 56px;
-        padding: 0 14px;
-      }
-      .hub-cards {
-        grid-template-columns: 1fr;
-        padding: 0 14px;
-      }
-      .hub-features {
-        grid-template-columns: 1fr;
-        gap: 14px;
-        padding: 16px;
-      }
-      .hub-features > div + div {
-        border-left: 0;
-        border-top: 1px solid #eceef0;
-        padding-left: 0;
-        padding-top: 12px;
-      }
-      .chat-view {
-        grid-template-columns: 1fr;
-      }
-      .chat-sidebar {
-        display: none;
-      }
-    }
   </style>
 </head>
 <body>
 
-  <!-- Main Hub Landing -->
+  <!-- ========================================================
+       1. MAIN HUB LANDING SCREEN
+       ======================================================== -->
   <div id="modeHome" class="hub-shell">
     <aside class="hub-sidebar">
       <a class="hub-brand" href="#home" onclick="showSection('home'); return false;">
@@ -1057,7 +1462,7 @@
         <button class="active" id="navHome" onclick="showSection('home')">
           <span>⌂</span>Home
         </button>
-        <button id="navHistory" onclick="showSection('history')">
+        <button id="navHistory" onclick="openChat('Explain photosynthesis in simple terms')">
           <span>◷</span>History
         </button>
         <button id="navBookmarks" onclick="showSection('bookmarks')">
@@ -1075,7 +1480,7 @@
 
     <main class="hub-main">
       <header class="hub-topbar">
-        <form id="hubSearch" class="hub-search" onsubmit="handleSearch(event)">
+        <form class="hub-search" onsubmit="handleSearch(event)">
           <span>⌕</span>
           <input id="hubQuery" placeholder="Ask anything or upload a file (PDF, TXT, etc.)" aria-label="Ask anything">
           <button type="submit" aria-label="Ask">↵</button>
@@ -1086,7 +1491,7 @@
         </div>
       </header>
 
-      <!-- Home Landing Content -->
+      <!-- Home Landing Page -->
       <div id="homeLanding">
         <section class="hub-hero">
           <div>
@@ -1165,8 +1570,8 @@
             </span>
           </button>
 
-          <!-- Card 3: AI Canvas -->
-          <button class="mode-card" type="button" onclick="openCanvas()">
+          <!-- Card 3: AI Canvas / Whiteboard -->
+          <button class="mode-card" type="button" onclick="openWhiteboard()">
             <span class="card-icon">✎</span>
             <span class="card-arrow">→</span>
             <strong>AI Canvas</strong>
@@ -1188,7 +1593,7 @@
           </button>
         </section>
 
-        <!-- Bottom Highlights -->
+        <!-- Highlights Row -->
         <section class="hub-features">
           <div>
             <span>♧</span>
@@ -1210,74 +1615,395 @@
 
       <!-- Bookmarks Subpage -->
       <section id="hubBookmarksPage" class="hub-subpage" hidden>
-        <header class="hub-subpage-head">
+        <div class="hub-subpage-head">
           <p class="hub-eyebrow">YOUR SAVED LESSONS</p>
           <h1>Bookmarks</h1>
-          <p>Keep the explanations you want to revisit.</p>
-        </header>
-        <div id="hubBookmarkList" class="hub-bookmark-list">
+        </div>
+        <div class="hub-bookmark-list">
           <article class="hub-bookmark-card">
-            <h2>Photosynthesis: Light & Dark Reactions</h2>
-            <p>How chlorophyll absorbs sunlight to split water (H₂O) and fix carbon dioxide (CO₂) into energy-storing glucose.</p>
-            <small>Saved yesterday · AI Visual Lesson</small>
-            <div class="hub-bookmark-actions">
-              <button onclick="openChat('Explain photosynthesis in simple terms')">Open lesson</button>
-              <button onclick="alert('Demo: Notes downloaded!')">Download notes</button>
-            </div>
+            <h2>JEE Main Physics: Newton's 2nd Law Pulley &amp; FBD</h2>
+            <p>Complete mechanical derivation and free body diagram of block on table and hanging mass.</p>
+            <button class="hub-save-settings" onclick="openWhiteboard()">Open Whiteboard</button>
           </article>
           <article class="hub-bookmark-card">
-            <h2>Neural Network Architecture & Backpropagation</h2>
-            <p>Mathematical intuition of forward pass, loss calculation, and weight updates via the chain rule.</p>
-            <small>Saved 3 days ago · AI Video Explainer</small>
-            <div class="hub-bookmark-actions">
-              <button onclick="openVideoExplainer()">Open lesson</button>
-              <button onclick="alert('Demo: Notes downloaded!')">Download notes</button>
-            </div>
+            <h2>Ohm's Law Part 1: Circuit Diagram &amp; Electrical Principles</h2>
+            <p>Verification of V = I × R with animated circuit electron flow and resistance dissipation.</p>
+            <button class="hub-save-settings" onclick="openVideoExplainer()">Open Video Explainer</button>
           </article>
         </div>
       </section>
 
       <!-- Settings Subpage -->
       <section id="hubSettingsPage" class="hub-subpage" hidden>
-        <header class="hub-subpage-head">
-          <p class="hub-eyebrow">PERSONALIZE YOUR LEARNING</p>
+        <div class="hub-subpage-head">
+          <p class="hub-eyebrow">PREFERENCES</p>
           <h1>Settings</h1>
-          <p>Your preferences for visual tutoring and voice explanations.</p>
-        </header>
-        <form class="hub-settings-form" onsubmit="event.preventDefault(); alert('Preferences saved successfully!');">
-          <label>
-            Your display name
-            <input value="Learner" maxlength="40" placeholder="Name shown in NeuraLearn">
-          </label>
-          <label>
-            Default learning level
-            <select>
-              <option selected>University beginner</option>
-              <option>High school level</option>
-              <option>University intermediate</option>
-              <option>Advanced researcher</option>
-            </select>
-          </label>
-          <label>
-            Narration voice & language
-            <select>
-              <option selected>English (Natural Voice)</option>
-              <option>English (India)</option>
-              <option>Hindi</option>
-              <option>Spanish</option>
-            </select>
-          </label>
-          <p>NeuraLearn delivers real-time AI visual tutoring, adaptive sketch generation, and narrated interactive lessons.</p>
-          <div class="hub-settings-actions">
-            <button class="hub-save-settings" type="submit">Save settings</button>
-          </div>
+        </div>
+        <form class="hub-settings-form" onsubmit="event.preventDefault(); alert('Settings saved!');">
+          <label>Display Name<input value="Learner"></label>
+          <label>Default Level<select><option>University beginner</option><option>High school</option><option>Intermediate</option></select></label>
+          <button class="hub-save-settings" type="submit">Save</button>
         </form>
       </section>
-
     </main>
   </div>
 
-  <!-- Demo: Text Chat View -->
+  <!-- ========================================================
+       2. WHITEBOARD VIEW (EXACTLY MATCHING IMAGE 1)
+       ======================================================== -->
+  <div id="whiteboardView" class="wb-view" hidden>
+    
+    <!-- Top Dark Input Header -->
+    <div class="wb-top-panel">
+      <div class="wb-input-row">
+        <!-- Question Input -->
+        <div class="wb-field-col">
+          <label for="wbPrompt">What would you like to understand? (Type question, paste text, or upload image/PDF below)</label>
+          <textarea id="wbPrompt" class="wb-question-textarea">JEE Main Physics NLM Pulley: Block m1=2kg on horizontal table connected over pulley to hanging block m2=4kg. Draw accurate Free Body Diagram (FBD), calculate acceleration a and tension T.</textarea>
+          <button type="button" class="wb-attach-btn" onclick="alert('Image / PDF upload dialog')">
+            <span>+</span> Add Image or PDF (JEE Question, Diagram, Notes)
+          </button>
+        </div>
+
+        <!-- Dropdowns -->
+        <div class="wb-field-col">
+          <label>Learning Level</label>
+          <select class="wb-select-box">
+            <option selected>university beginner</option>
+            <option>school level</option>
+            <option>university intermediate</option>
+            <option>advanced</option>
+          </select>
+          <label style="margin-top: 4px;">Voice Language</label>
+          <select class="wb-select-box">
+            <option selected>English</option>
+            <option>English (India)</option>
+            <option>Hindi</option>
+          </select>
+        </div>
+
+        <!-- Preferences & Action -->
+        <div class="wb-field-col">
+          <label>Teaching Preferences</label>
+          <input class="wb-pref-input" value="Analogies, slow pace, step-by-step...">
+          <button type="button" class="wb-build-btn" onclick="buildLessonAction()">
+            <span>✦</span> Build Live Lesson
+          </button>
+        </div>
+      </div>
+
+      <!-- Sample Topics Chips -->
+      <div class="wb-chips-row">
+        <span class="wb-chips-label">Sample Topics:</span>
+        <button type="button" class="wb-chip active" onclick="selectTopic(this, 'jee')">✔ JEE Pulley &amp; FBD</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'incline')">Incline Plane FBD</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'heart')">Heart Anatomy</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'binary')">Binary Search</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'derivatives')">Derivatives</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'circuits')">Circuits &amp; Ohm's Law</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'tcp')">TCP Handshake</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'tree')">Tree Traversal</button>
+        <button type="button" class="wb-chip" onclick="selectTopic(this, 'bubble')">Bubble Sort</button>
+      </div>
+    </div>
+
+    <!-- Subheader Action Bar -->
+    <div class="wb-subbar">
+      <div class="wb-subbar-info">
+        <h2 id="wbLessonTitle">JEE Main Physics: Newton's Laws — Pulley &amp; Free Body Diagram</h2>
+        <small>Progressive SVG vector illustrations drawn and narrated in real time</small>
+      </div>
+      <div class="wb-subbar-actions">
+        <button type="button" class="wb-btn" onclick="prevWbStep()">◀ Prev</button>
+        <button type="button" class="wb-btn" onclick="nextWbStep()">Next ▶</button>
+        <button type="button" class="wb-btn" id="wbPlayBtn" onclick="toggleWbPlay()">⏸ Stop</button>
+        <button type="button" class="wb-btn" onclick="resetWbStep()">↺ Reset</button>
+        <button type="button" class="wb-btn" onclick="alert('Downloading lesson notes (Markdown)...')">⬇ Notes</button>
+        <button type="button" class="wb-btn" onclick="alert('Downloading diagram SVG...')">⬇ SVG</button>
+        <span class="wb-pill-step" id="wbStepPill">Step 1 of 5</span>
+        <button type="button" class="wb-btn home-btn" onclick="backHome()">← Home</button>
+      </div>
+    </div>
+
+    <!-- Whiteboard Workspace: Canvas on Left, Teaching Sequence on Right -->
+    <div class="wb-workspace">
+      
+      <!-- Canvas Area -->
+      <div class="wb-canvas-container">
+        <div class="wb-board-title">
+          <h1>Newton's 2nd Law: Pulley &amp; Free Body Diagram (FBD)</h1>
+          <p>System: m₁ = 2.0 kg (table) · m₂ = 4.0 kg (hanging) · Frictionless pulley · g = 10 m/s²</p>
+        </div>
+
+        <svg class="wb-svg-frame" viewBox="0 0 760 440" id="wbSvgBoard">
+          <!-- Table Surface -->
+          <line x1="80" y1="230" x2="480" y2="230" stroke="#222" stroke-width="3"></line>
+          <!-- Table Hatch Lines -->
+          <g stroke="#666" stroke-width="1.5">
+            <line x1="100" y1="230" x2="80" y2="250"></line>
+            <line x1="140" y1="230" x2="120" y2="250"></line>
+            <line x1="180" y1="230" x2="160" y2="250"></line>
+            <line x1="220" y1="230" x2="200" y2="250"></line>
+            <line x1="260" y1="230" x2="240" y2="250"></line>
+            <line x1="300" y1="230" x2="280" y2="250"></line>
+            <line x1="340" y1="230" x2="320" y2="250"></line>
+            <line x1="380" y1="230" x2="360" y2="250"></line>
+            <line x1="420" y1="230" x2="400" y2="250"></line>
+            <line x1="460" y1="230" x2="440" y2="250"></line>
+          </g>
+
+          <!-- Block 1 (on table) -->
+          <rect x="200" y="170" width="80" height="60" fill="#f8fafc" stroke="#2563eb" stroke-width="3" rx="4"></rect>
+          <text x="240" y="205" font-family="system-ui" font-size="14" font-weight="700" fill="#1e3a8a" text-anchor="middle">m₁ = 2 kg</text>
+
+          <!-- Pulley on Edge of Table -->
+          <circle cx="480" cy="230" r="16" fill="#fff" stroke="#1e293b" stroke-width="3"></circle>
+          <circle cx="480" cy="230" r="4" fill="#1e293b"></circle>
+          <text x="480" y="205" font-family="system-ui" font-size="11" font-style="italic" fill="#2563eb" text-anchor="middle">Pulley (ideal)</text>
+
+          <!-- String from Block 1 to Pulley -->
+          <line x1="280" y1="200" x2="480" y2="214" stroke="#1e293b" stroke-width="2.5"></line>
+
+          <!-- String Hanging from Pulley to Block 2 -->
+          <line x1="496" y1="230" x2="496" y2="300" stroke="#1e293b" stroke-width="2.5"></line>
+
+          <!-- Block 2 (Hanging) -->
+          <rect x="466" y="300" width="60" height="55" fill="#fef2f2" stroke="#dc2626" stroke-width="3" rx="4"></rect>
+          <!-- Hatch inside Block 2 -->
+          <line x1="472" y1="310" x2="480" y2="340" stroke="#dc2626" stroke-width="1.5"></line>
+          <text x="496" y="332" font-family="system-ui" font-size="13" font-weight="700" fill="#991b1b" text-anchor="middle">m₂ = 4 kg</text>
+
+          <!-- Dynamic FBD Force Vectors (Layer toggled by step) -->
+          <g id="wbStepVectors">
+            <!-- Rendered dynamically by updateWbVectors() -->
+          </g>
+        </svg>
+      </div>
+
+      <!-- Right Teaching Sequence Steps -->
+      <aside class="wb-sequence-panel">
+        <span class="wb-panel-eyebrow">AI WHITEBOARD TUTOR</span>
+        <h3>Teaching Sequence</h3>
+        <p class="wb-seq-summary">Physical System Setup — FBD for Block 1 — FBD for Block 2 — Newton's 2nd Law — Solve a &amp; T</p>
+
+        <div class="wb-step-card active" id="seqCard1" onclick="jumpWbStep(1)">
+          <div class="wb-step-tag">1. PHYSICAL SYSTEM &amp; COORDINATE LAYOUT</div>
+          <div class="wb-step-desc">
+            We have a classic JEE mechanics system: Block 1 of mass 2 kg rests on a frictionless horizontal table and is attached via a light taut string over a frictionless pulley to hanging Block 2 of mass 4 kg.
+          </div>
+        </div>
+
+        <div class="wb-step-card" id="seqCard2" onclick="jumpWbStep(2)">
+          <div class="wb-step-tag">2. FREE BODY DIAGRAM FOR BLOCK 1 (M1 ON TABLE)</div>
+          <div class="wb-step-desc">
+            Now we isolate Block 1 to draw its Free Body Diagram. Vertically, downward gravity m₁g is balanced by upward normal force N₁ from table. Horizontally, string tension T accelerates the block to the right.
+          </div>
+        </div>
+
+        <div class="wb-step-card" id="seqCard3" onclick="jumpWbStep(3)">
+          <div class="wb-step-tag">3. FREE BODY DIAGRAM FOR BLOCK 2 (HANGING M2)</div>
+          <div class="wb-step-desc">
+            Next, we isolate the hanging mass m₂. Two collinear forces act vertically: gravity m₂g pulls downward with 40 Newtons, while tension T pulls upward. Because the block accelerates downward, m₂g - T = m₂a.
+          </div>
+        </div>
+
+        <div class="wb-step-card" id="seqCard4" onclick="jumpWbStep(4)">
+          <div class="wb-step-tag">4. COUPLING EQUATIONS TO SOLVE</div>
+          <div class="wb-step-desc">
+            Equating both bodies: (1) T = m₁a = 2a and (2) m₂g - T = m₂a ⇒ 40 - T = 4a. Adding gives: 40 = 6a ⇒ a = 40/6 = 6.67 m/s². Tension T = 2(6.67) = 13.33 N.
+          </div>
+        </div>
+
+        <div class="wb-step-card" id="seqCard5" onclick="jumpWbStep(5)">
+          <div class="wb-step-tag">5. FINAL VERIFICATION &amp; CHECKPOINT</div>
+          <div class="wb-step-desc">
+            Check: Net accelerating force = m₂g = 40 N. Total mass accelerated = m₁ + m₂ = 6 kg. Acceleration a = F_net / M_total = 40 / 6 = 6.67 m/s². Tension T &lt; m₂g confirms hanging mass accelerates down.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       3. AI VIDEO EXPLAINER VIEW (EXACTLY MATCHING IMAGE 2)
+       ======================================================== -->
+  <div id="videoExplainerView" class="ve-view" hidden>
+    
+    <!-- Top Black Bar -->
+    <header class="ve-top-bar">
+      <button type="button" onclick="backHome()">← NeuraLearn Home</button>
+      <span>AI Video Explainer</span>
+      <button type="button" class="ve-save-btn" onclick="alert('Bookmark saved to your account!')">♡ Save bookmark</button>
+    </header>
+
+    <!-- Top Search Header -->
+    <div class="ve-search-header">
+      <div class="ve-search-box">
+        <span style="color: #7b818d; font-size: 16px;">⌕</span>
+        <input placeholder="Ask anything... (e.g., Inorder traversal, Photosynthesis, etc.)" value="Explain Ohm's Law with an example circuit">
+      </div>
+      <div class="ve-top-right-tools">
+        <div class="ve-model-pill">
+          <span class="dot"></span>
+          <span>Gemini Flash Lite</span>
+          <span style="font-size: 9px; color: #888;">▼</span>
+        </div>
+        <span style="cursor: pointer; color: #636873;">?</span>
+        <span style="cursor: pointer; color: #636873;">☾</span>
+        <span style="cursor: pointer; color: #636873;">⍾</span>
+        <div class="ve-avatar-s">S</div>
+      </div>
+    </div>
+
+    <!-- Explainer Workspace -->
+    <div class="ve-workspace">
+      
+      <!-- Main Content / Circuit Area -->
+      <div class="ve-content-col">
+        <div class="ve-breadcrumbs">
+          <a href="#" onclick="backHome(); return false;">Home</a> / <span>AI tutor</span>
+        </div>
+        <div class="ve-live-badge"><i></i> LIVE CODE</div>
+
+        <div class="ve-title-row">
+          <div>
+            <h1>Ohm's Law Part 1</h1>
+            <div class="ve-meta-pills">
+              <span class="ve-meta-pill">✦ Generated visual</span>
+              <span class="ve-meta-pill">✔ Background fact check</span>
+            </div>
+          </div>
+          <div class="ve-line-nav">
+            <span>Line 1 of 2</span>
+            <button type="button" onclick="alert('Previous segment')">‹</button>
+            <button type="button" onclick="alert('Next segment')">›</button>
+          </div>
+        </div>
+
+        <!-- Mode Bar & Zoom Toolbar -->
+        <div class="ve-canvas-tabs-bar">
+          <div class="ve-mode-tabs">
+            <button type="button" class="active">✎ Whiteboard</button>
+            <button type="button" onclick="alert('Viewing live code generation...')">&lt;&gt; Code</button>
+            <button type="button" onclick="alert('Viewing lecture notes...')">📄 Notes</button>
+          </div>
+          <div class="ve-canvas-zoom">
+            <span>100%</span>
+            <button type="button" style="border:0; background:none; cursor:pointer;">🔍</button>
+            <button type="button" style="border:0; background:none; cursor:pointer;">⛶</button>
+          </div>
+        </div>
+
+        <!-- Dark Circuit Canvas Box -->
+        <div class="ve-canvas-box">
+          <svg class="ve-svg-circuit" viewBox="0 0 680 340">
+            <!-- Circuit loop wire -->
+            <rect x="140" y="80" width="400" height="180" rx="6" fill="none" stroke="#3b4252" stroke-width="4"></rect>
+
+            <!-- Voltage Source (Battery) on Left -->
+            <g transform="translate(140, 170)">
+              <!-- Break wire behind battery -->
+              <rect x="-8" y="-35" width="16" height="70" fill="#0f131a"></rect>
+              <!-- Long line (positive) -->
+              <line x1="0" y1="-30" x2="0" y2="30" stroke="#f43f5e" stroke-width="4" stroke-linecap="round"></line>
+              <!-- Shorter line (negative) -->
+              <line x1="14" y1="-16" x2="14" y2="16" stroke="#f43f5e" stroke-width="4" stroke-linecap="round"></line>
+              <text x="0" y="-42" fill="#9ca3af" font-size="12" font-family="system-ui" text-anchor="middle">Voltage (V)</text>
+            </g>
+
+            <!-- Resistor Zigzag on Top Wire -->
+            <g transform="translate(340, 80)">
+              <rect x="-60" y="-12" width="120" height="24" fill="#0f131a"></rect>
+              <path d="M-50,0 L-35,-18 L-15,18 L5,-18 L25,18 L40,-18 L50,0" fill="none" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+              <text x="0" y="-30" fill="#9ca3af" font-size="12" font-family="system-ui" text-anchor="middle">Resistance (R)</text>
+            </g>
+
+            <!-- Current Dot Indicator on Bottom Wire -->
+            <circle cx="180" cy="260" r="6" fill="#38bdf8"></circle>
+            <!-- Pointer line from current dot to label -->
+            <line x1="180" y1="260" x2="260" y2="300" stroke="#78716c" stroke-width="1.5"></line>
+            <text x="270" y="305" fill="#e2e8f0" font-size="12" font-family="system-ui">Current (I)</text>
+          </svg>
+
+          <!-- Floating Drawing Palette on Canvas Right -->
+          <div class="ve-floating-palette">
+            <button class="ve-palette-btn" title="Pencil">✎</button>
+            <button class="ve-palette-btn" title="Highlighter">🖌</button>
+            <button class="ve-palette-btn" title="Text">T</button>
+            <button class="ve-palette-btn" title="Circle">◯</button>
+            <div class="ve-color-dot active" style="background: #8a63d2;"></div>
+            <div class="ve-color-dot" style="background: #3db8c6;"></div>
+            <div class="ve-color-dot" style="background: #3fb950;"></div>
+            <div class="ve-color-dot" style="background: #d29922;"></div>
+            <div class="ve-color-dot" style="background: #f0883e;"></div>
+            <div class="ve-color-dot" style="background: #d946ef;"></div>
+            <button class="ve-palette-btn" title="Clear">🗑</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right AI Tutor Fact-Checked Sidebar -->
+      <aside class="ve-tutor-sidebar">
+        <div class="ve-tutor-head">
+          <div class="ve-tutor-brand">
+            <span style="font-size: 16px; color: #6366f1;">✦</span>
+            <div>
+              <strong>AI Tutor</strong>
+              <small style="display: block;">Chat &amp; Learn</small>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; color: #888;">
+            <button style="border:0; background:none; cursor:pointer;">⎘</button>
+            <button style="border:0; background:none; cursor:pointer;">⧉</button>
+          </div>
+        </div>
+
+        <div class="ve-toggle-verified">
+          <div>
+            <b>Verified</b>
+            <small>All answers are fact-checked in the background</small>
+          </div>
+          <div class="ve-switch" onclick="alert('Toggle background fact-checking')"></div>
+        </div>
+
+        <div class="ve-lesson-card">
+          <h4>New York State Office of Mental Health (OMH)</h4>
+          <p style="color: #64748b; font-size: 11px; margin-bottom: 10px;">
+            Since the abbreviation "OMH" can refer to the fundamental electrical principle Ohm's Law in engineering or the New York State Office of Mental Health in administrative and legal contexts, this overview addresses both interpretations to ensure a complete engineering and institutional perspective.
+          </p>
+
+          <h4 style="color: #0f172a; margin-top: 12px;">Part 1: Ohm's Law in Electrical Engineering</h4>
+          <div class="ve-highlight-snippet">
+            Ohm's Law is a fundamental relationship in electrical engineering describing how voltage, current, and resistance interact in a linear circuit.
+          </div>
+          <p class="ve-stream-note">Full explanation streaming below</p>
+        </div>
+
+        <div class="ve-token-stats">
+          This session: 18,709 tokens (8,191 in, 10,518 out) · 1 answer · 58.8 s of model time
+        </div>
+
+        <div class="ve-pdf-box" onclick="alert('Select PDF file to attach')">
+          <div>
+            <b>Attach PDF for section-wise learning</b>
+            <small>No PDF attached.</small>
+          </div>
+          <span style="color: #94a3b8; font-size: 14px;">›</span>
+        </div>
+
+        <!-- Chat input -->
+        <div class="ve-chat-compose">
+          <span style="color: #94a3b8; font-size: 14px; cursor: pointer;">📎</span>
+          <input placeholder="Ask a question or type a topic..." onkeydown="if(event.key==='Enter')alert('Query sent to AI Tutor!')">
+          <button type="button" onclick="alert('Query sent to AI Tutor!')">➤</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       4. TEXT CHAT VIEW
+       ======================================================== -->
   <section id="chatView" class="chat-view" hidden>
     <aside class="chat-sidebar">
       <a href="#home" class="hub-brand" onclick="backHome(); return false;">
@@ -1285,11 +2011,11 @@
         <span>NeuraLearn</span>
       </a>
       <button class="chat-new" type="button" onclick="startNewChat()">＋ &nbsp;New chat</button>
-      <p>RECENTS</p>
+      <p style="font-size: 10px; color: #888e97; margin: 10px 8px 8px; letter-spacing: 0.15em;">RECENTS</p>
       <div class="chat-recent">
-        <button type="button" onclick="openChat('Explain photosynthesis in simple terms')">Explain photosynthesis</button>
-        <button type="button" onclick="openChat('How does gradient descent work?')">Gradient descent intuition</button>
-        <button type="button" onclick="openChat('Explain Dijkstra algorithm with a small graph')">Dijkstra shortest path</button>
+        <button type="button" onclick="sendDemoMessage('Explain photosynthesis in simple terms')">Explain photosynthesis</button>
+        <button type="button" onclick="sendDemoMessage('How does gradient descent work?')">Gradient descent intuition</button>
+        <button type="button" onclick="sendDemoMessage('Explain Dijkstra algorithm with a small graph')">Dijkstra shortest path</button>
       </div>
       <div class="chat-side-bottom">
         <button type="button" onclick="backHome()">← Back to Home</button>
@@ -1299,15 +2025,15 @@
     <main class="chat-main">
       <header class="chat-top">
         <button type="button" onclick="backHome()">← &nbsp;Home</button>
-        <span class="chat-model">AI Tutor · High Speed Inference</span>
+        <span style="border: 1px solid #e8e9eb; border-radius: 20px; padding: 6px 12px; font-size: 11px; color: #555;">AI Tutor · Fast Inference</span>
         <span class="hub-avatar">n</span>
       </header>
 
       <div id="chatMessages" class="chat-messages">
         <div class="chat-welcome" id="chatWelcome">
           <span class="chat-spark">✦</span>
-          <h1>What can I help you learn?</h1>
-          <p>Ask a question and get a clear, thoughtful explanation with diagrams.</p>
+          <h1 style="font-size: 26px; margin: 14px 0 8px;">What can I help you learn?</h1>
+          <p style="color: #64748b; font-size: 13px;">Ask a question and get a clear, thoughtful explanation with diagrams.</p>
           <div class="chat-suggestions">
             <button type="button" onclick="sendDemoMessage('Explain photosynthesis in simple terms')">Explain photosynthesis simply</button>
             <button type="button" onclick="sendDemoMessage('Help me understand linked lists with an example')">Teach me linked lists</button>
@@ -1317,8 +2043,8 @@
       </div>
 
       <div class="chat-composer-wrap">
-        <form id="groqChatForm" class="groq-composer" onsubmit="handleChatSubmit(event)">
-          <textarea id="groqChatInput" rows="1" placeholder="Message NeuraLearn AI Tutor…"></textarea>
+        <form class="groq-composer" onsubmit="handleChatSubmit(event)">
+          <textarea id="chatInputBox" rows="1" placeholder="Message NeuraLearn AI Tutor…"></textarea>
           <div class="composer-foot">
             <span>Enter to send · Shift+Enter for new line</span>
             <button type="submit" aria-label="Send message">↑</button>
@@ -1328,76 +2054,22 @@
     </main>
   </section>
 
-  <!-- Demo: AI Video Explainer / Canvas View -->
-  <section id="videoExplainerView" class="demo-view" hidden>
-    <header class="demo-topbar">
-      <button type="button" onclick="backHome()">← Back to Home</button>
-      <span id="demoViewTitle">NeuraLearn — AI Video Explainer</span>
-    </header>
-    <div class="demo-canvas-wrap">
-      <div class="demo-board">
-        <div class="demo-board-head">
-          <h2 id="boardTopic">Neuron Structure & Action Potential</h2>
-          <span style="font-size: 12px; color: #707680;">Slide 1 of 3</span>
-        </div>
-        <div class="demo-board-body">
-          <svg viewBox="0 0 600 320" style="width: 100%; max-height: 480px;">
-            <!-- Hand drawn style neuron diagram -->
-            <g stroke="#805bb6" stroke-width="2.5" fill="none">
-              <path d="M 280 160 C 230 110, 160 80, 90 70 M 280 160 C 210 170, 140 190, 80 230 M 280 160 C 220 220, 170 250, 110 280 M 280 160 C 240 90, 200 40, 170 20" stroke="#9b83c9" stroke-dasharray="2 0"></path>
-              <path d="M 330 160 L 480 160" stroke="#333" stroke-width="6" stroke-linecap="round"></path>
-              <path d="M 480 160 C 510 130, 540 110, 570 100 M 480 160 C 520 170, 550 180, 580 200 M 480 160 C 510 200, 540 230, 570 240" stroke="#9b83c9"></path>
-            </g>
-            <circle cx="300" cy="160" r="32" fill="#c2a9e5" stroke="#683ea3" stroke-width="3"></circle>
-            <circle cx="300" cy="160" r="10" fill="#683ea3"></circle>
-            <!-- Dendrite Terminals -->
-            <circle cx="90" cy="70" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <circle cx="80" cy="230" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <circle cx="110" cy="280" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <circle cx="170" cy="20" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <!-- Axon Terminals -->
-            <circle cx="570" cy="100" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <circle cx="580" cy="200" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <circle cx="570" cy="240" r="7" fill="#ddccf2" stroke="#683ea3"></circle>
-            <!-- Text Labels -->
-            <text x="260" y="220" font-family="system-ui" font-size="14" font-weight="600" fill="#24272d">Cell Body (Soma)</text>
-            <text x="50" y="50" font-family="system-ui" font-size="14" font-weight="600" fill="#683ea3">Dendrites (Receive signals)</text>
-            <text x="390" y="145" font-family="system-ui" font-size="14" font-weight="600" fill="#24272d">Axon (Transmits)</text>
-            <text x="470" y="270" font-family="system-ui" font-size="14" font-weight="600" fill="#683ea3">Axon Terminals (Synapse)</text>
-          </svg>
-        </div>
-      </div>
-      <aside class="demo-side">
-        <span class="demo-badge">AI Narration &amp; Transcript</span>
-        <h3>Interactive Lesson</h3>
-        <p>
-          "Neurons transmit electrical and chemical signals. Signals arrive via the <strong>dendrites</strong>, integrate in the <strong>soma</strong>, and fire down the <strong>axon</strong> to communicate across synapses."
-        </p>
-        <div style="margin-top: auto; display: flex; gap: 8px;">
-          <button style="flex: 1; padding: 10px; background: #c6f36a; color: #10120b; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="alert('Simulated voice: Playing narration...')">▶ Play Narration</button>
-          <button style="padding: 10px 14px; background: #1c1e23; color: #fff; border: 1px solid #373a40; border-radius: 8px; cursor: pointer;" onclick="backHome()">Exit</button>
-        </div>
-      </aside>
-    </div>
-  </section>
-
+  <!-- ========================================================
+       5. JAVASCRIPT CONTROLLERS
+       ======================================================== -->
   <script>
-    // Navigation state
+    // Navigation routing
     function showSection(name) {
       document.getElementById('modeHome').hidden = false;
-      document.getElementById('chatView').hidden = true;
+      document.getElementById('whiteboardView').hidden = true;
       document.getElementById('videoExplainerView').hidden = true;
+      document.getElementById('chatView').hidden = true;
 
-      document.getElementById('homeLanding').hidden = (name !== 'home' && name !== 'history');
+      document.getElementById('homeLanding').hidden = (name !== 'home');
       document.getElementById('hubBookmarksPage').hidden = (name !== 'bookmarks');
       document.getElementById('hubSettingsPage').hidden = (name !== 'settings');
 
-      if (name === 'history') {
-        openChat('Explain photosynthesis in simple terms');
-        return;
-      }
-
-      ['Home', 'History', 'Bookmarks', 'Settings'].forEach(tab => {
+      ['Home', 'Bookmarks', 'Settings'].forEach(tab => {
         const btn = document.getElementById('nav' + tab);
         if (btn) btn.classList.toggle('active', tab.toLowerCase() === name);
       });
@@ -1415,9 +2087,147 @@
       document.getElementById('hubQuery').value = '';
     }
 
-    // Chat demo interaction
+    // Whiteboard view (Matching Image 1)
+    let currentWbStep = 1;
+    let wbPlaying = false;
+    let wbInterval = null;
+
+    function openWhiteboard() {
+      document.getElementById('modeHome').hidden = true;
+      document.getElementById('videoExplainerView').hidden = true;
+      document.getElementById('chatView').hidden = true;
+      document.getElementById('whiteboardView').hidden = false;
+      jumpWbStep(1);
+    }
+
+    function jumpWbStep(n) {
+      currentWbStep = Math.max(1, Math.min(5, n));
+      document.getElementById('wbStepPill').textContent = `Step ${currentWbStep} of 5`;
+
+      for (let i = 1; i <= 5; i++) {
+        const card = document.getElementById('seqCard' + i);
+        if (card) card.classList.toggle('active', i === currentWbStep);
+      }
+      updateWbVectors();
+    }
+
+    function nextWbStep() {
+      jumpWbStep(currentWbStep >= 5 ? 1 : currentWbStep + 1);
+    }
+
+    function prevWbStep() {
+      jumpWbStep(currentWbStep <= 1 ? 5 : currentWbStep - 1);
+    }
+
+    function resetWbStep() {
+      jumpWbStep(1);
+    }
+
+    function toggleWbPlay() {
+      wbPlaying = !wbPlaying;
+      const btn = document.getElementById('wbPlayBtn');
+      if (wbPlaying) {
+        btn.textContent = '⏸ Stop';
+        wbInterval = setInterval(nextWbStep, 3500);
+      } else {
+        btn.textContent = '▶ Play';
+        clearInterval(wbInterval);
+      }
+    }
+
+    function buildLessonAction() {
+      const prompt = document.getElementById('wbPrompt').value.trim();
+      alert('Building live lesson for: ' + prompt.slice(0, 60) + '...');
+      jumpWbStep(1);
+    }
+
+    function selectTopic(btn, topic) {
+      document.querySelectorAll('.wb-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      if (topic === 'jee') {
+        document.getElementById('wbPrompt').value = "JEE Main Physics NLM Pulley: Block m1=2kg on horizontal table connected over pulley to hanging block m2=4kg. Draw accurate Free Body Diagram (FBD), calculate acceleration a and tension T.";
+        document.getElementById('wbLessonTitle').textContent = "JEE Main Physics: Newton's Laws — Pulley & Free Body Diagram";
+        jumpWbStep(1);
+      } else {
+        document.getElementById('wbPrompt').value = "Teach " + btn.textContent.trim() + " with clear step-by-step vector illustrations and mathematical derivation.";
+        document.getElementById('wbLessonTitle').textContent = btn.textContent.trim() + " — Step-by-Step Lesson";
+        jumpWbStep(1);
+      }
+    }
+
+    function updateWbVectors() {
+      const g = document.getElementById('wbStepVectors');
+      if (!g) return;
+      g.innerHTML = '';
+
+      if (currentWbStep >= 2) {
+        // Block 1 FBD vectors
+        // Normal force N1 up
+        g.innerHTML += `
+          <g stroke="#16a34a" stroke-width="2.5">
+            <line x1="240" y1="170" x2="240" y2="105"></line>
+            <polygon points="240,95 235,110 245,110" fill="#16a34a"></polygon>
+            <text x="248" y="115" font-family="system-ui" font-size="12" font-weight="700" fill="#16a34a">N₁ = 20 N</text>
+          </g>
+          <!-- Gravity m1g down -->
+          <g stroke="#dc2626" stroke-width="2.5">
+            <line x1="240" y1="230" x2="240" y2="295"></line>
+            <polygon points="240,305 235,290 245,290" fill="#dc2626"></polygon>
+            <text x="248" y="295" font-family="system-ui" font-size="12" font-weight="700" fill="#dc2626">m₁g = 20 N</text>
+          </g>
+          <!-- Tension T right -->
+          <g stroke="#2563eb" stroke-width="2.5">
+            <line x1="280" y1="200" x2="350" y2="200"></line>
+            <polygon points="360,200 345,195 345,205" fill="#2563eb"></polygon>
+            <text x="320" y="190" font-family="system-ui" font-size="12" font-weight="700" fill="#2563eb">T</text>
+          </g>
+        `;
+      }
+
+      if (currentWbStep >= 3) {
+        // Block 2 FBD vectors
+        g.innerHTML += `
+          <!-- Tension T up on m2 -->
+          <g stroke="#2563eb" stroke-width="2.5">
+            <line x1="496" y1="300" x2="496" y2="250"></line>
+            <polygon points="496,240 491,255 501,255" fill="#2563eb"></polygon>
+            <text x="508" y="260" font-family="system-ui" font-size="12" font-weight="700" fill="#2563eb">T</text>
+          </g>
+          <!-- Gravity m2g down on m2 -->
+          <g stroke="#dc2626" stroke-width="2.5">
+            <line x1="496" y1="355" x2="496" y2="410"></line>
+            <polygon points="496,420 491,405 501,405" fill="#dc2626"></polygon>
+            <text x="508" y="415" font-family="system-ui" font-size="12" font-weight="700" fill="#dc2626">m₂g = 40 N</text>
+          </g>
+        `;
+      }
+
+      if (currentWbStep >= 4) {
+        // Equations card overlay on canvas
+        g.innerHTML += `
+          <g transform="translate(80, 290)">
+            <rect width="320" height="95" rx="8" fill="#fff" stroke="#93c5fd" stroke-width="2" filter="drop-shadow(0 2px 8px rgba(0,0,0,0.06))"></rect>
+            <text x="14" y="25" font-family="system-ui" font-size="12" font-weight="700" fill="#1e3a8a">Equations of Motion:</text>
+            <text x="14" y="48" font-family="monospace" font-size="12" fill="#334155">Block 1: T = m₁a = 2a</text>
+            <text x="14" y="68" font-family="monospace" font-size="12" fill="#334155">Block 2: 40 - T = 4a</text>
+            <text x="14" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#16a34a">⇒ a = 6.67 m/s², T = 13.33 N</text>
+          </g>
+        `;
+      }
+    }
+
+    // AI Video Explainer view (Matching Image 2)
+    function openVideoExplainer() {
+      document.getElementById('modeHome').hidden = true;
+      document.getElementById('whiteboardView').hidden = true;
+      document.getElementById('chatView').hidden = true;
+      document.getElementById('videoExplainerView').hidden = false;
+    }
+
+    // Text Chat view
     function openChat(prompt) {
       document.getElementById('modeHome').hidden = true;
+      document.getElementById('whiteboardView').hidden = true;
       document.getElementById('videoExplainerView').hidden = true;
       document.getElementById('chatView').hidden = false;
       if (prompt) {
@@ -1430,8 +2240,8 @@
       container.innerHTML = `
         <div class="chat-welcome" id="chatWelcome">
           <span class="chat-spark">✦</span>
-          <h1>What can I help you learn?</h1>
-          <p>Ask a question and get a clear, thoughtful explanation with diagrams.</p>
+          <h1 style="font-size: 26px; margin: 14px 0 8px;">What can I help you learn?</h1>
+          <p style="color: #64748b; font-size: 13px;">Ask a question and get a clear, thoughtful explanation with diagrams.</p>
           <div class="chat-suggestions">
             <button type="button" onclick="sendDemoMessage('Explain photosynthesis in simple terms')">Explain photosynthesis simply</button>
             <button type="button" onclick="sendDemoMessage('Help me understand linked lists with an example')">Teach me linked lists</button>
@@ -1443,7 +2253,7 @@
 
     function handleChatSubmit(e) {
       e.preventDefault();
-      const input = document.getElementById('groqChatInput');
+      const input = document.getElementById('chatInputBox');
       const val = input.value.trim();
       if (!val) return;
       input.value = '';
@@ -1455,76 +2265,41 @@
       const welcome = document.getElementById('chatWelcome');
       if (welcome) welcome.remove();
 
-      // User Bubble
       const userRow = document.createElement('div');
       userRow.className = 'chat-msg user';
       userRow.innerHTML = `<div class="chat-bubble">${escapeHtml(query)}</div>`;
       container.appendChild(userRow);
 
-      // AI Response Bubble
       const aiRow = document.createElement('div');
       aiRow.className = 'chat-msg assistant';
-      aiRow.innerHTML = `
-        <span class="chat-role">✦</span>
-        <div class="chat-bubble">Thinking…</div>
-      `;
+      aiRow.innerHTML = `<span class="chat-role">✦</span><div class="chat-bubble">Thinking…</div>`;
       container.appendChild(aiRow);
       container.scrollTop = container.scrollHeight;
 
-      // Mock AI answer based on query
       setTimeout(() => {
         let answer = "";
         const q = query.toLowerCase();
         if (q.includes('photosynthesis')) {
-          answer = "Photosynthesis is the biological process by which plants, algae, and some bacteria turn sunlight into usable chemical energy.\n\n" +
-            "• Light Absorption: Chlorophyll inside chloroplasts captures red and blue photons.\n" +
-            "• Water Splitting (Light Reaction): H₂O is split into oxygen (O₂ released as byproduct), electrons, and hydrogen ions.\n" +
-            "• Carbon Fixation (Calvin Cycle): CO₂ from the atmosphere is assembled into 3-carbon sugars and ultimately Glucose (C₆H₁₂O₆).\n\n" +
+          answer = "Photosynthesis is the process plants use to convert light energy into chemical energy:\n\n" +
+            "• Light Reactions: Chlorophyll captures light to split H₂O into oxygen (O₂) and electrons.\n" +
+            "• Dark Reactions (Calvin Cycle): CO₂ is fixed into energy-dense glucose (C₆H₁₂O₆).\n\n" +
             "Equation: 6CO₂ + 6H₂O + Sunlight → C₆H₁₂O₆ + 6O₂.";
         } else if (q.includes('linked list')) {
-          answer = "A Linked List is a linear data structure where elements (nodes) are stored non-contiguously in memory.\n\n" +
-            "Each node consists of two parts:\n" +
-            "1. Data: The actual value (e.g. 42, 'apple').\n" +
-            "2. Pointer (next): The memory address pointing to the subsequent node.\n\n" +
-            "[Head: 10 | •] ───> [ 20 | •] ───> [ 30 | null]\n\n" +
-            "Advantages:\n" +
-            "• Dynamic sizing: Nodes are allocated on-demand.\n" +
-            "• Fast insertions & deletions: O(1) if pointer is already at the target location.";
-        } else if (q.includes('quadratic')) {
-          answer = "A quadratic equation is in the standard form:\n" +
-            "ax² + bx + c = 0 (where a ≠ 0)\n\n" +
-            "To solve for x using the Quadratic Formula:\n" +
-            "x = (-b ± √(b² - 4ac)) / (2a)\n\n" +
-            "Example: x² - 5x + 6 = 0\n" +
-            "• a = 1, b = -5, c = 6\n" +
-            "• Discriminant: (-5)² - 4(1)(6) = 25 - 24 = 1\n" +
-            "• Solutions: x = (5 ± 1) / 2 → x = 3 or x = 2.";
+          answer = "A Linked List is a linear data structure of nodes connected via pointers:\n\n" +
+            "[Node A: 10 | next] ───> [Node B: 20 | next] ───> [Node C: 30 | null]\n\n" +
+            "Key Advantages:\n" +
+            "• O(1) insertions & deletions at known positions.\n" +
+            "• Dynamic memory allocation without fixed size limits.";
         } else {
           answer = `Here is a clear breakdown for "${query}":\n\n` +
-            "1. Core Intuition: Understand the primary motivation and foundational concept before formalizing the rules.\n" +
-            "2. Mechanism: Break down each step into its simplest causal components.\n" +
-            "3. Key Takeaway: Always verify your assumptions with a concrete example or test case.";
+            "1. Core Intuition: Understand the primary motivation and foundational concept before formalizing rules.\n" +
+            "2. Mechanism: Trace how each component interacts.\n" +
+            "3. Verification: Calculate with an example to confirm the result.";
         }
 
         aiRow.querySelector('.chat-bubble').textContent = answer;
         container.scrollTop = container.scrollHeight;
       }, 500);
-    }
-
-    function openVideoExplainer() {
-      document.getElementById('modeHome').hidden = true;
-      document.getElementById('chatView').hidden = true;
-      document.getElementById('demoViewTitle').textContent = "NeuraLearn — AI Video Explainer";
-      document.getElementById('boardTopic').textContent = "Neuron Structure & Action Potential";
-      document.getElementById('videoExplainerView').hidden = false;
-    }
-
-    function openCanvas() {
-      document.getElementById('modeHome').hidden = true;
-      document.getElementById('chatView').hidden = true;
-      document.getElementById('demoViewTitle').textContent = "NeuraLearn — AI Canvas Board";
-      document.getElementById('boardTopic').textContent = "Simple Harmonic Motion: Pendulum Mechanics";
-      document.getElementById('videoExplainerView').hidden = false;
     }
 
     function escapeHtml(str) {
