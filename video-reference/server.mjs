@@ -179,7 +179,7 @@ async function modelStream(system, user, maxTokens, onText, options = {}) {
 // is the quickest, and transcription needs no reasoning). Busy models hand
 // over to the next Gemini model.
 const OCR_PROMPT = 'Transcribe all readable text on this page in reading order. Keep each heading, list item and paragraph on its own line, and write formulas in plain text. Return only the page text, with no commentary. If the page has no text, return nothing.';
-async function readPageImage(base64) {
+async function readPageImage(base64, describe=false) {
   const key = process.env.GEMINI_API_KEY || '';
   if (!key) throw Object.assign(new Error('Reading scanned PDFs needs a Gemini key on the server.'), {status:503});
   const base = (process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
@@ -192,7 +192,7 @@ async function readPageImage(base64) {
     let r;
     try {
       r = await fetch(`${base}/models/${model}:generateContent`, { method:'POST', headers:{'content-type':'application/json','x-goog-api-key':key}, signal:AbortSignal.timeout(Math.min(60_000, timeLeft())),
-        body:JSON.stringify({ contents:[{ role:'user', parts:[{ inline_data:{ mime_type:'image/jpeg', data:base64 } }, { text:OCR_PROMPT }] }], generationConfig:{ temperature:0, maxOutputTokens:4000 } }) });
+        body:JSON.stringify({ contents:[{ role:'user', parts:[{ inline_data:{ mime_type:'image/jpeg', data:base64 } }, { text:describe?'Describe this slide image for a learner. Read all visible labels and explain the chart, diagram, process, or illustration accurately. Separate observed content from uncertain interpretation. Return concise, structured notes.':'Transcribe all readable text on this page in reading order. Keep each heading, list item and paragraph on its own line, and write formulas in plain text. Return only the page text, with no commentary. If the page has no text, return nothing.' }] }], generationConfig:{ temperature:0, maxOutputTokens:4000 } }) });
     } catch (e) { lastErr = e; continue; }
     const data = await r.json().catch(()=>({}));
     if (!r.ok) { lastErr = new Error(data.error?.message || `HTTP ${r.status}`); if ([429,500,502,503,504,404].includes(r.status)) continue; break; }
@@ -337,8 +337,8 @@ async function handle(req,res) {
     try {
       const body = await readBody(req);
       // The same lines in the same voice are made once and reused (replays, saved lectures).
-      const ttsKey = JSON.stringify([body.lines ?? body.text, body.voice || '', body.style || '']);
-      const { wav, segments } = ttsCache.get(ttsKey) || ttsCache.set(ttsKey, await synthesize(body.lines ?? body.text, ttsConfig(), fetch, { voice: body.voice, style: body.style }));
+      const ttsKey = JSON.stringify([body.lines ?? body.text, body.voice || '', body.style || '', body.language || 'English']);
+      const { wav, segments } = ttsCache.get(ttsKey) || ttsCache.set(ttsKey, await synthesize(body.lines ?? body.text, ttsConfig(), fetch, { voice: body.voice, style: body.style, language: body.language }));
       res.writeHead(200, { 'content-type':'audio/wav', 'content-length':wav.length, 'x-segments':JSON.stringify(segments), 'cache-control':'private, max-age=86400', 'x-content-type-options':'nosniff' });
       return res.end(wav);
     } catch(e) { return send(res,e.status||500,{error:e.message||'Unexpected voice error.',retryAfter:e.retryAfter,daily:e.daily}); }
@@ -361,8 +361,26 @@ async function handle(req,res) {
       const body = await readBody(req);
       const image = typeof body.image==='string' ? body.image.replace(/^data:image\/jpeg;base64,/, '') : '';
       if (!image || image.length > 950_000 || !/^[A-Za-z0-9+/=]+$/.test(image)) throw Object.assign(new Error('Send one page as a JPEG under 700 KB.'), {status:400});
-      return send(res,200,await readPageImage(image));
+      return send(res,200,await readPageImage(image,body.describe===true));
     } catch(e) { return send(res,e.status||500,{error:e.message||'Could not read the page.'}); }
+  }
+  // Hierarchical document summaries: each call handles one bounded batch,
+  // so a complete book never has to fit inside one model context.
+  if (req.method==='POST' && url.pathname==='/api/document-summary') {
+    try {
+      const body = await readBody(req);
+      const title = typeof body.title==='string' ? body.title.slice(0,200) : 'uploaded document';
+      const source = validateText(body.source,'Section notes',16000);
+      const final = body.final === true;
+      const language = typeof body.language==='string' ? body.language.slice(0,60) : 'English';
+      const system = (final
+        ? 'You are a careful tutor combining ordered summaries of EVERY section of a document. Produce a useful complete-document guide: purpose, all major topics in order, key definitions/mechanisms, important examples/formulas, and a concise recap. Preserve scope and details; do not claim material absent from notes. Cite page/slide ranges as given. Keep it clear and structured, about 500-800 words.'
+        : 'You are building a complete-document guide from a batch of sections. Summarize every supplied section in order, preserving key terms, definitions, mechanisms, examples and page/slide references. Do not omit a section or add facts. Output compact notes (about 120-180 words per section) that a later pass can combine.') + ` Write all content in ${language}.`;
+      const user = `Document: ${title}\nLanguage: ${language}\n\n${source}`;
+      const result = String(await modelCall(system,user,false,final?1600:1400,{thinking:'low'} ) || '').trim();
+      if (!result) throw new Error('The model returned an empty document summary.');
+      return send(res,200,{summary:result});
+    } catch(e) { return send(res,e.status||500,{error:e.message||'Could not summarize these sections.'}); }
   }
   if (req.method==='POST' && url.pathname==='/api/sources') {
     try {
@@ -397,7 +415,7 @@ async function handle(req,res) {
     try {
       const body = await readBody(req);
       const question = validateText(body.question,'Question',600);
-      const result = await answerInterrupt({algorithm:body.algorithm,data:body.data,target:body.target,stepIndex:body.stepIndex,sceneTitle:body.sceneTitle,question}, body.offline===true||!isConfigured() ? null : modelCall);
+      const result = await answerInterrupt({algorithm:body.algorithm,data:body.data,target:body.target,stepIndex:body.stepIndex,sceneTitle:body.sceneTitle,question,language:String(body.language||'English').slice(0,60)}, body.offline===true||!isConfigured() ? null : modelCall);
       return send(res,200,result);
     } catch(e) { return send(res,e.status||500,{error:e.message||'Unexpected interrupt error.'}); }
   }
@@ -407,11 +425,12 @@ async function handle(req,res) {
       const topic = validateText(body.topic,'Topic',500);
       const source = typeof body.source==='string' ? body.source.slice(0,20000) : '';
       const level = typeof body.level==='string' ? body.level.slice(0,100) : 'Undergraduate engineering';
+      const language = typeof body.language==='string' ? body.language.slice(0,60) : 'English';
       const history = Array.isArray(body.history) ? body.history.slice(-6).map(m => ({ role: (m && m.role === 'user') ? 'user' : 'assistant', content: String((m && m.content) || '').slice(0, 1500) })) : [];
       const htxt = history.length ? `Conversation so far (continue it — answer follow-ups in context, do not repeat what was already explained):\n${history.map(m=>`${m.role==='user'?'Learner':'Tutor'}: ${m.content}`).join('\n').slice(0,4000)}\n\n` : '';
-      const system = `You are NeuraLearn, a friendly expert tutor answering exactly like ChatGPT. Match your depth and length to the question asked: a quick or brief question gets a short focused answer; a big or complex topic gets a full thorough explanation — never pad a small question, never cut a big one short. Use structured markdown that fits the topic: a one-line bold title, numbered steps (1. 2. 3.) for processes, C/code examples inside \`\`\`c fences when code helps, "- " bullets for lists like advantages/disadvantages, and a markdown table when comparing things. Use **bold** for key terms. Plain markdown only — no links. Return ONLY the explanation.`;
-      const user = `${htxt}Explain this topic. Topic: ${topic}\nLearner level: ${level}\nSource notes (ground truth when supplied):\n${source || '(No notes supplied)'}`;
-      const cacheKey = JSON.stringify([topic, source, level, history]);
+      const system = `You are NeuraLearn, a friendly expert tutor answering exactly like ChatGPT. Match your depth and length to the question asked: a quick or brief question gets a short focused answer; a big or complex topic gets a full thorough explanation — never pad a small question, never cut a big one short. Use structured markdown that fits the topic: a one-line bold title, numbered steps (1. 2. 3.) for processes, C/code examples inside \`\`\`c fences when code helps, "- " bullets for lists like advantages/disadvantages, and a markdown table when comparing things. Use **bold** for key terms. Plain markdown only — no links. Return ONLY the explanation. Write your complete response in ${language}.`;
+      const user = `${htxt}Explain this topic in ${language}. Topic: ${topic}\nLearner level: ${level}\nSource notes (ground truth when supplied):\n${source || '(No notes supplied)'}`;
+      const cacheKey = JSON.stringify([topic, source, level, language, history]);
       const cached = explainCache.get(cacheKey);
       // Streaming: one JSON object per line, {t} for text as it is written, then {done}.
       if (body.stream === true) {
@@ -458,6 +477,7 @@ async function handle(req,res) {
       const topic = validateText(body.topic,'Topic',500);
       const source = typeof body.source==='string' ? body.source.slice(0,20000) : '';
       const level = typeof body.level==='string' ? body.level.slice(0,100) : 'Undergraduate engineering';
+      const language = typeof body.language==='string' ? body.language.slice(0,60) : 'English';
       const isPdf = body.pdf === true;
       const isViz = body.visualize === true;
       const PDF_SUFFIX = `DOCUMENT MODE: the source text is ONE section of a long uploaded document. Explain it line by line — cover EVERY idea in this section, one beat per idea, as many beats as needed (up to 24 beats). Each beat: 2-4 sentences with real substance. Do not skim, do not summarize the rest of the document.`;
@@ -477,17 +497,17 @@ REQUIRED parent message protocol (window.parent.postMessage; use targetOrigin '*
 0) Attach the command listener FIRST, before sending anything: window.addEventListener('message', handler). Then send the lesson message. Then build visuals. Order matters — if you send first and listen later you will miss the first play command and stall on frame 1.
 1) On initialization send {type:'neuralelearn:lesson', title:'lesson title', scenes:[{title:'lesson title',summary:'continuous explanation',beats:TOTAL}]}. Use exactly ONE scene for the whole explanation — never multiple chapters.
 2) At the beginning of each step send {type:'neuralelearn:beat', title:'lesson title', sceneTitle:'lesson title', sceneIndex:0, beatIndex:0-based step number across the whole explanation, totalScenes:1, totalBeats:TOTAL, narration:'ONE spoken sentence that reads as part of one flowing ChatGPT-style explanation', subtitle:'short matching subtitle', durationMs:7000, visualNote:'what changed visually'}.
-3) Listen for window message data {type:'neuralelearn:command', command:'play'|'pause'|'replay'|'seek'|'speed', sceneIndex?:number, value?:number}. Robustness rules: 'play' is idempotent — it means start OR resume, handle duplicate plays without restarting; never auto-play before the first 'play'. Implement pause with remaining-time bookkeeping: on 'pause' record Date.now and clear the pending timeout; on 'play' resume with the remaining ms, do not restart the beat. 'replay' must clear ALL timers, reset sceneIndex=0/beatIndex=0 and all visual state, set playbackState='playing', then execute beat 0 and schedule with startTimer (never leave it paused after replay). 'seek' must clamp to [0,N), clear timer, reset to that scene beat 0, set playbackState to whatever it was before seek if it was 'playing' keep playing and startTimer, else execute the beat paused — but default to playing so chapter clicks advance. 'speed' updates playbackSpeed and applies to the CURRENT wait (recompute remaining). Playback must not run before 'play' command. Do NOT use speechSynthesis inside the iframe for timing — the host does narration; only use word-count waits. Never use DOMContentLoaded alone to init visuals — run init immediately AND on DOMContentLoaded, so visuals exist even if the event already fired; visuals must be visible within 1s of load.
+3) Listen for window message data {type:'neuralelearn:command', command:'play'|'pause'|'replay'|'seek'|'speed', sceneIndex?:number, beatIndex?:number, value?:number}. Robustness rules: 'play' is idempotent — it means start OR resume, handle duplicate plays without restarting; never auto-play before the first 'play'. Implement pause with remaining-time bookkeeping: on 'pause' record Date.now and clear the pending timeout; on 'play' resume with the remaining ms, do not restart the beat. 'replay' must clear ALL timers, reset sceneIndex=0/beatIndex=0 and all visual state, set playbackState='playing', then execute beat 0 and schedule with startTimer (never leave it paused after replay). 'seek' accepts sceneIndex and optional beatIndex, clamps both to valid ranges, clears the current timer, resets the visual state, then executes the requested beat; if playback was active it resumes from that beat, otherwise it stays paused. 'speed' updates playbackSpeed and applies to the CURRENT wait (recompute remaining). Playback must not run before 'play' command. Do NOT use speechSynthesis inside the iframe for timing — the host does narration; only use word-count waits. Never use DOMContentLoaded alone to init visuals — run init immediately AND on DOMContentLoaded, so visuals exist even if the event already fired; visuals must be visible within 1s of load.
 4) Emit each beat event immediately before performing that beat's visual action; keep visual action and narration aligned, then WAIT FOR THE FULL NARRATION TO FINISH before advancing — never cut a scene short. TIMING: include EXACTLY this function verbatim in your JS: function beatMs(nar){var words=String(nar).split(/\s+/).length;return Math.max(6000,Math.round(words*550/playbackSpeed))+800;} and call beatMs(beat.narration) for every beat's wait and durationMs. A scene MUST NOT advance until its current beat's narration time has fully elapsed (plus the buffer). When all beats done send {type:'neuralelearn:finished'}. EVERY beat must change something visible in the inline SVG (highlight, reveal, move a dot along a path, update a label) — a beat with no visual change is a failure.
 5) POINTER AND SUBTITLES: the host provides window.NL and shows the subtitles. Right after sending each beat message, call if(window.NL)NL.point(el) with the one SVG or HTML element that sentence is about (or an array of up to 3 elements, pointed at in order). Never draw subtitle, caption or narration text inside the page; the host already shows it.
 6) Do not repeat chapter headings in narration except at the first beat of that chapter. Use no fake claims or placeholder content.
 
 Return complete working HTML, with inline CSS and JS. Quality over brevity. The topic is arbitrary, so do not hardcode only one topic or pretend every topic is a tree. Choose topic-specific visuals and ensure all examples are correct. NO external URLs, NO CDN script tags — if you emit a <script src= it will be rejected.`;
-      let system = isPdf ? sysBase + '\n\n' + PDF_SUFFIX : sysBase;
+      let system = (isPdf ? sysBase + '\n\n' + PDF_SUFFIX : sysBase) + `\n\nLANGUAGE REQUIREMENT: Write all narration, subtitles, headings, and learner-facing labels in ${language}. Keep programming syntax, standard technical terms, and identifiers accurate. Speak in clear, natural ${language}.`;
       if (body.visualize === true) system += '\n\n' + VISUALIZE_SUFFIX;
       const maxTokens = isPdf ? 16000 : (body.visualize === true ? 16000 : 8000);
-      const user = `Create the complete executable NeuraLearn visual lesson now. Topic: ${topic}\nLearner level: ${level}\nSource notes (use as ground truth when supplied; do not invent conflicting details):\n${source || '(No source notes supplied)'}`;
-      const lessonKey = JSON.stringify([topic, source, level, isPdf, isViz]);
+      const user = `Create the complete executable NeuraLearn visual lesson now. Topic: ${topic}\nLearner level: ${level}\nResponse language: ${language}\nSource notes (use as ground truth when supplied; do not invent conflicting details):\n${source || '(No source notes supplied)'}`;
+      const lessonKey = JSON.stringify([topic, source, level, language, isPdf, isViz]);
       const hit = lessonCache.get(lessonKey);
       if (hit) return send(res,200,{...hit,cached:true});
       let html = '';

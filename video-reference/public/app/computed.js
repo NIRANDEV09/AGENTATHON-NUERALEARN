@@ -696,7 +696,7 @@
     const thinking = chat('bot', `Pausing at step ${stepIndex + 1} to answer with new animated scenes…`); if (thinking) thinking.classList.add('thinking');
     status('Building answer scenes from the trace…');
     try {
-      const res = await api('/api/interrupt', { algorithm: L.algorithm, data: L.visual.data, target: L.visual.start ?? L.visual.target, stepIndex, sceneTitle: sc.title, question, offline: instant() }, 60000);
+      const res = await api('/api/interrupt', { algorithm: L.algorithm, data: L.visual.data, target: L.visual.start ?? L.visual.target, stepIndex, sceneTitle: sc.title, question, language: pref('nl.language') || 'English', offline: instant() }, 60000);
       if (thinking) thinking.remove();
       if (load !== C.load) return;
       const inserted = res.scenes.map(s => ({ ...s, title: s.title }));

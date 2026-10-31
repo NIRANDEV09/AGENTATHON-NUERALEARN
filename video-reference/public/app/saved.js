@@ -35,7 +35,7 @@
   function card(row) {
     const c = el('article', 'savedcard');
     const top = el('div', 'savedtop');
-    top.append(el('span', `ltag ${row.kind === 'doc' ? 'teal' : 'vio'}`, row.kind === 'doc' ? 'PDF lecture' : 'AI lecture'), el('span', 'hint', when(row.created_at)));
+    top.append(el('span', `ltag ${row.kind === 'doc' ? 'teal' : 'vio'}`, row.kind === 'doc' ? 'Document lecture' : 'AI lecture'), el('span', 'hint', when(row.created_at)));
     const h = el('h3', '', row.title);
     const meta = el('p', 'hint', `${row.part_count} ${row.part_count === 1 ? 'part' : 'parts'}${row.model ? ` · ${row.model}` : ''}`);
     const actions = el('div', 'savedactions');

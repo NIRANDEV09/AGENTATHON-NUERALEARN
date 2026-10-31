@@ -1,5 +1,7 @@
 const $ = id => document.getElementById(id);
-const state = { lineRun:0, subLine:null, tsubWords:[], tsubEnds:[], lesson:null, mode:'legacy', index:0, beatIndex:0, playing:false, paused:false, runId:0, speech:null, timer:null, startedAt:0, remainingMs:0, voiceAvailable:('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window), voices:[], codeHtml:'', autoPlay:false, lastBeatAt:0, pendingSeek:null, watchdog:null, playSentAt:0, lessonLoadId:0, postedBeats:null, lastChatScene:-1, explainBubble:null, explainLoad:-1, lineNo:0, vizParts:[], vizNext:0, vizIndex:-1, vizBusy:false, vizEpoch:0, vizPendingAdvance:false, chatHistory:[], lastQ:'', pdfChunks:null, pdfTitle:'', pdfParsing:false, pdfError:'', stalls:0, sentSpans:null, sentIdx:0, postedPartText:-1 };
+const state = { lineRun:0, subLine:null, tsubWords:[], tsubEnds:[], lesson:null, mode:'legacy', language:new URLSearchParams(location.search).get('language')||'English', index:0, beatIndex:0, playing:false, paused:false, runId:0, speech:null, timer:null, startedAt:0, remainingMs:0, voiceAvailable:('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window), voices:[], codeHtml:'', autoPlay:false, lastBeatAt:0, frameHasBeat:false, frameSeeking:false, frameTimeline:null, frameBeatAt:0, frameCompleted:false, pendingSeek:null, watchdog:null, playSentAt:0, lessonLoadId:0, postedBeats:null, lastChatScene:-1, explainBubble:null, explainLoad:-1, lineNo:0, vizParts:[], vizNext:0, vizIndex:-1, vizBusy:false, vizEpoch:0, vizPendingAdvance:false, chatHistory:[], lastQ:'', pdfChunks:null, pdfTitle:'', pdfParsing:false, pdfError:'', documentGeneration:0, stalls:0, sentSpans:null, sentIdx:0, postedPartText:-1 };
+const parentOrigin=new URLSearchParams(location.search).get('parentOrigin');
+window.addEventListener('message',e=>{if(e.source!==parent||!parentOrigin||e.origin!==parentOrigin||e.data?.type!=='neuralelearn:language')return;state.language=String(e.data.language||'English').slice(0,60);if(window.Voice)Voice.setLanguage(state.language);});
 const palette = ['#2f63e9','#0e9b78','#db8b24','#8c5be8','#dc5474','#0e91b5'];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function chatStatus(t){ const s=$('chatStatus'); if(s) s.textContent=t; }
@@ -96,39 +98,72 @@ async function ensurePdfJs(){
   lib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
   return lib;
 }
-function chunkPages(pages, target=1200){
-  const chunks=[]; let cur={texts:[],words:0,start:1};
-  pages.forEach((t,idx)=>{
-    if(cur.words>0&&cur.words+t.words>target){
-      chunks.push({text:cur.texts.join('\n\n'),pages:cur.start===idx?`${cur.start}`:`${cur.start}–${idx}`});
-      cur={texts:[],words:0,start:idx+1};
+function chunkPages(pages, target=550, pageWord='p.'){
+  const chunks=[]; let parts=[], words=0, refs=[];
+  const flush=()=>{ if(parts.length){ chunks.push({text:parts.join('\n\n'),pages:refs.join(', ')}); parts=[];words=0;refs=[]; } };
+  pages.forEach((pg,idx)=>{
+    const page=idx+1, text=String(pg.text||'').trim(); if(!text)return;
+    const paras=text.split(/\n{2,}/).map(x=>x.trim()).filter(Boolean);
+    for(const para of paras){
+      const ws=para.split(/\s+/);
+      for(let at=0;at<ws.length;at+=target){
+        const part=ws.slice(at,at+target).join(' '), n=Math.min(target,ws.length-at);
+        if(words&&words+n>target)flush();
+        if(!refs.includes(`${pageWord}${page}`))refs.push(`${pageWord}${page}`);
+        parts.push(part);words+=n;
+        if(words>=target)flush();
+      }
     }
-    cur.texts.push(t.text);cur.words+=t.words;
-  });
-  if(cur.texts.length)chunks.push({text:cur.texts.join('\n\n'),pages:cur.start===pages.length?`${cur.start}`:`${cur.start}–${pages.length}`});
-  return chunks;
+  }); flush(); return chunks;
 }
-// Even sampling of the WHOLE document for the up-front summary — tiny excerpts
-// from start/middle/end so the AI summarizes the whole doc, not just page 1.
-// Server caps source at 20000 chars; stay under it.
-function docSummarySource(chunks){
-  const budget=18000;
-  const all=chunks.map(c=>c.text).join('\n\n');
-  if(all.length<=budget) return all;
-  const per=Math.floor(budget/chunks.length);
-  if(per>=200) return chunks.map(c=>`(pp. ${c.pages}) ${c.text.slice(0,per)}`).join('\n\n').slice(0,budget);
-  // Very long document: spread a fixed number of chunks evenly across it.
-  const take=Math.max(1,Math.floor(budget/1600));
-  const step=chunks.length/take;
-  const picked=[]; for(let i=0;i<take;i++) picked.push(chunks[Math.floor(i*step)]);
-  const each=Math.max(200,Math.floor(budget/picked.length));
-  return picked.map(c=>`(pp. ${c.pages}) ${c.text.slice(0,each)}`).join('\n\n').slice(0,budget);
+async function summarizeAllSections(chunks,title){
+  // Every chunk is included. Batch summaries stay bounded; successive passes
+  // combine them without sending the original document as one giant prompt.
+  let level=chunks.map((c,i)=>`Section ${i+1} (${c.pages}):\n${c.text}`), pass=0;
+  while(level.length>1||pass===0){
+    const next=[];
+    for(let i=0;i<level.length;i+=4){
+      const batch=level.slice(i,i+4).join('\n\n');
+      const r=await api('/api/document-summary',{title,source:batch,final:level.length<=4,language:state.language},90000);
+      next.push(r.summary);
+    }
+    if(next.length===1)return next[0];
+    level=next.map((s,i)=>`Summary ${i+1} of ${next.length}:\n${s}`);pass++;
+    if(pass>12)throw new Error('Document has too many sections to combine safely.');
+  }
+  return level[0]||'';
+}
+async function startDocumentLearning(fileName,title,pages,unit='p.'){
+  leaveLessonBoard();const generation=++state.documentGeneration;
+  const totalWords=pages.reduce((n,pg)=>n+pg.words,0);
+  if(!totalWords){state.pdfError='no readable text';pdfStatus(`“${fileName}” has no readable text. The pages may be blank, protected, or missing OCR text.`);return;}
+  const chunks=chunkPages(pages,550,unit);state.pdfChunks=chunks;state.pdfTitle=title;
+  const n=chunks.length;
+  pdfStatus(`“${fileName}” ready — ${pages.length} ${unit==='slide '?'slides':'pages'} · ~${totalWords.toLocaleString()} words → ${n} complete sections. First visual is starting now; full summary runs in background.`);
+  addChat('bot',`Document attached: “${title}” — ${n} sections covering all readable ${unit==='slide '?'slides':'pages'}. Visual lessons are starting now; I’m building a complete guide in the background.`);
+  postTextSentences(`I’ve read ${pages.length} ${unit==='slide '?'slides':'pages'} and split the document into ${n} ordered sections. The first visual lesson is being prepared now. A complete overview will appear here when the background summary finishes.`);
+  state.postedPartText=-2;
+  const group={title,kind:'doc',explanation:'',complete:false};
+  chunks.forEach((c,i)=>state.vizParts.push({title:`${title} — Section ${i+1}/${n} (${c.pages})`,kind:'doc',text:c.text,pages:c.pages,el:null,html:null,ready:false,model:'',group}));
+  syncVideoNavigation();
+  pumpViz();
+  (async()=>{
+    const first=state.vizParts[0],deadline=Date.now()+180000;
+    while(first&&!first.ready&&!first.failed&&Date.now()<deadline&&state.documentGeneration===generation)await new Promise(r=>setTimeout(r,300));
+    if(state.documentGeneration!==generation)return;
+    const summary=await summarizeAllSections(chunks,title);
+    if(state.pdfTitle!==title||state.documentGeneration!==generation)return;
+    group.explanation=summary;group.complete=true;postTextSentences(summary);state.chatHistory.push({q:`Complete guide to “${title}”`,a:summary});maybeSaveGroup(group);
+    const unread=pages.reduce((a,p,i)=>p.ocrFailed?a.concat(i+1):a,[]),unitLabel=unit==='slide '?'slide':'page';
+    if(unread.length)addChat('bot',`Coverage note: AI could not extract ${unread.length} ${unitLabel}${unread.length===1?'':'s'} (${unread.join(', ')}) after retry. Those references remain flagged in the lesson, so the missing content is visible.`);
+    pdfStatus(`“${fileName}” complete — ${pages.length} ${unit==='slide '?'slides':'pages'} represented in ${n} visual sections; full-document guide ready${unread.length?` · ${unread.length} unread page(s) flagged`:''}.`);
+  })().catch(e=>{if(state.pdfTitle===title&&state.documentGeneration===generation){group.complete=true;maybeSaveGroup(group);addChat('bot',`All ${n} visual sections are still queued. The complete overview could not be combined: ${e.message}`);pdfStatus(`“${fileName}” ready — ${n} sections; overview unavailable.`);}});
 }
 async function handlePdfFile(file){
   state.pdfChunks=null;state.pdfTitle='';state.pdfParsing=false;state.pdfError='';
-  if(!file){ pdfStatus('No PDF attached. Attach one and the video is built from it section by section — total length follows the document.'); return; }
+  if(!file){ pdfStatus('PDF and PPTX · complete section-by-section lessons'); return; }
   if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){ state.pdfError='not a .pdf file'; pdfStatus('That is not a PDF — pick a .pdf file.'); return; }
-  if(file.size>40*1024*1024){ state.pdfError='over 40MB'; pdfStatus('PDF is over 40MB — pick a smaller file.'); return; }
+  if(file.size>40*1024*1024){ state.pdfError='over 40MB'; pdfStatus('File is over 40MB — pick a smaller PDF or PPTX.'); return; }
   state.pdfParsing=true;
   pdfStatus(`Reading “${file.name}”… do not hit Generate until it says ready.`);
   try{
@@ -143,52 +178,78 @@ async function handlePdfFile(file){
       pages.push({text,words:text?text.split(/\s+/).filter(Boolean).length:0});
       if(p%10===0||p===pdf.numPages)pdfStatus(`Reading “${file.name}”… page ${p}/${pdf.numPages} — wait for ready.`);
     }
-    let totalWords=pages.reduce((n,pg)=>n+pg.words,0);
-    // A scanned PDF (photos of pages) has no text layer: read the pages with Gemini instead.
-    if(!totalWords&&!$('instantToggle')?.checked){ totalWords=await readScannedPages(pdf,pages,file.name); }
-    if(!totalWords){ state.pdfError='no extractable text (scanned images?)'; pdfStatus(`“${file.name}” has ${pdf.numPages} pages but no readable text${$('instantToggle')?.checked?' (scanned pages are read with AI, which is off in Instant mode)':''}. Remove the file or pick another.`); return; }
-    const perPage=Math.round(totalWords/pdf.numPages);
-    const dense=perPage>3000?` — unusually dense text (${perPage.toLocaleString()} words/page); check the file looks right.`:'';
-    const chunks=chunkPages(pages,800).map(c=>({text:c.text.slice(0,12000),pages:c.pages}));
-    state.pdfChunks=chunks;state.pdfTitle=file.name.replace(/\.pdf$/i,'');
-    const n=chunks.length;
-    pdfStatus(`“${file.name}” ready — ${pdf.numPages} pages · ~${totalWords.toLocaleString()} words → ${n} sections. AI is writing the full-document summary — visuals start after it appears.`);
-    addChat('bot',`PDF attached: “${state.pdfTitle}” — ${n} sections. AI is writing a full-document summary first; visuals start only once it appears. Ask anything meanwhile and it jumps the queue.`);
-    startThinking(); chatStatus('Writing full-document summary…');
-    let summary=null, summaryErr='';
-    try{
-      const exp=await api('/api/explain',{
-        topic:`Full-document summary of “${state.pdfTitle}”`.slice(0,500),
-        source:docSummarySource(chunks),
-        level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding'
-      },120000);
-      summary=String(exp&&exp.explanation||'').trim();
-    }catch(e){ summaryErr=(e&&e.message)||'request failed'; }
-    stopThinking();
-    if(summary){
-      postTextSentences(summary);
-      state.chatHistory.push({q:`Summarize the uploaded document “${state.pdfTitle}”`.slice(0,300),a:summary});
-      pdfStatus(`“${file.name}” ready — summary above; drawing the ${n} sections as visuals now.`);
-    }else{
-      addChat('bot',`Full-document summary failed (${summaryErr||'no response'}) — showing raw Section 1 text instead; visuals start now.`);
-      postTextSentences(chunks[0].text);
-      state.postedPartText=0;
-      pdfStatus(`“${file.name}” ready — summary unavailable; raw Section 1 text above, visuals starting.`);
-    }
-    const group={title:state.pdfTitle,kind:'doc',explanation:summary||'',complete:true};
-    chunks.forEach((c,i)=>state.vizParts.push({title:`${state.pdfTitle} — Section ${i+1}/${n} (p.${c.pages})`,kind:'doc',text:c.text,pages:c.pages,el:null,html:null,ready:false,model:'',group}));
-    pumpViz();
+    // OCR image-only and unusually sparse pages even when the PDF also has a text layer.
+    const sparse=pages.reduce((a,p,i)=>(p.words<12?a.concat(i+1):a),[]);
+    if(sparse.length) await readScannedPages(pdf,pages,file.name,sparse);
+    await startDocumentLearning(file.name,file.name.replace(/\.pdf$/i,''),pages,'p.');
   }catch(e){ state.pdfError=e.message||'read failed'; pdfStatus(`Could not read that PDF: ${state.pdfError} — remove the file or pick another.`); }
   finally{ state.pdfParsing=false; }
 }
-// Scanned PDFs: each page is drawn to an image in the browser and sent to
-// /api/ocr, which transcribes it with Gemini. At most OCR_PAGES pages, two at
-// a time. Fills pages[] in place and returns the word count.
-const OCR_PAGES=30;
-async function readScannedPages(pdf,pages,name){
-  const n=Math.min(pdf.numPages,OCR_PAGES); let done=0, failed=0;
-  pdfStatus(`“${name}” is a scanned PDF: reading ${n} ${n===1?'page':'pages'} with AI…`);
-  addChat('bot',`“${name}” has no text layer (scanned pages), so the tutor is reading ${n<pdf.numPages?`the first ${n} of ${pdf.numPages} pages`:`its ${n} ${n===1?'page':'pages'}`} with AI first. This takes a few seconds a page.`);
+async function readPptx(file){
+  const buf=await file.arrayBuffer(),view=new DataView(buf),bytes=new Uint8Array(buf);
+  if(typeof DecompressionStream==='undefined')throw new Error('This browser cannot unpack PowerPoint files. Use the latest Edge or Chrome.');
+  let eocd=-1;for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){if(view.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error('The PPTX archive is damaged or unreadable.');
+  const count=view.getUint16(eocd+10,true),cdOffset=view.getUint32(eocd+16,true),entries=new Map();let p=cdOffset;
+  for(let i=0;i<count;i++){
+    if(view.getUint32(p,true)!==0x02014b50)throw new Error('Invalid PowerPoint archive directory.');
+    const method=view.getUint16(p+10,true),csize=view.getUint32(p+20,true),nlen=view.getUint16(p+28,true),elen=view.getUint16(p+30,true),clen=view.getUint16(p+32,true),lo=view.getUint32(p+42,true);
+    const name=new TextDecoder().decode(bytes.slice(p+46,p+46+nlen));entries.set(name,{method,csize,lo});p+=46+nlen+elen+clen;
+  }
+  async function readBytes(name){
+    const ent=entries.get(name);if(!ent)return '';
+    const lo=ent.lo, start=lo+30+view.getUint16(lo+26,true)+view.getUint16(lo+28,true),raw=bytes.slice(start,start+ent.csize);
+    if(ent.method===0)return raw;
+    if(ent.method!==8)throw new Error(`Unsupported compression for ${name}.`);
+    const stream=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  async function read(name){const b=await readBytes(name);return b?new TextDecoder().decode(b):'';}
+  async function describeImage(name){
+    const data=await readBytes(name);if(!data?.length)return '';
+    const ext=name.split('.').pop().toLowerCase(),mime=({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',svg:'image/svg+xml'})[ext];if(!mime)return '';
+    const bitmap=await createImageBitmap(new Blob([data],{type:mime}));
+    try{const scale=Math.min(1,1500/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);let url=canvas.toDataURL('image/jpeg',0.72),q=0.72;while(url.length>900000&&q>0.35){q-=0.12;url=canvas.toDataURL('image/jpeg',q);}const out=await api('/api/ocr',{image:url,describe:true},70000);return String(out.text||'').trim();}finally{bitmap.close?.();}
+  }
+  const xml=async name=>{const s=await read(name);return s?new DOMParser().parseFromString(s,'application/xml'):null;};
+  const rels=async name=>{const owner=name.replace(/(^|\/)\_rels\//,'$1').replace(/\.rels$/,'');const d=await xml(name),m=new Map();for(const x of d?.getElementsByTagName('Relationship')||[]){const target=x.getAttribute('Target');if(target&&!x.getAttribute('TargetMode'))m.set(x.getAttribute('Id'),new URL(target,'https://ppt.local/'+owner).pathname.slice(1));}return m;};
+  const pres=await xml('ppt/presentation.xml'),pr=await rels('ppt/_rels/presentation.xml.rels');
+  const ids=[...(pres?.getElementsByTagName('p:sldId')||[])].map(x=>x.getAttribute('r:id')).filter(Boolean);
+  if(!ids.length)throw new Error('No slides were found in this PowerPoint.');
+  const pages=[];
+  for(let i=0;i<ids.length;i++){
+    const path=pr.get(ids[i]);if(!path)continue;
+    const doc=await xml(path);if(!doc)continue;
+    const text=[...(doc.getElementsByTagName('a:t')||[])].map(x=>x.textContent.trim()).filter(Boolean);
+    const desc=[...(doc.getElementsByTagName('p:cNvPr')||[])].map(x=>x.getAttribute('descr')||x.getAttribute('title')||'').filter(Boolean);
+    let content=[...text,...desc.map(x=>`[Image description: ${x}]`)].join('\n');
+    const slideName=path.split('/').pop(),relPath=`ppt/slides/_rels/${slideName}.rels`,sr=await rels(relPath);
+    const byId=await rels(relPath);let imageNo=0;
+    for(const pic of doc.getElementsByTagName('p:pic')){
+      const blip=pic.getElementsByTagName('a:blip')[0],rid=blip?.getAttribute('r:embed'),target=byId.get(rid);if(!target||!target.startsWith('ppt/media/'))continue;
+      imageNo++;try{const desc=await describeImage(target);if(desc)content+=`\nSlide image ${imageNo} (${target.split('/').pop()}): ${desc}`;}catch{content+=`\nSlide image ${imageNo}: visual could not be analyzed.`;}
+    }
+    for(const target of sr.values())if(target.includes('/notesSlides/')){
+      const nd=await xml(target);const notes=[...(nd?.getElementsByTagName('a:t')||[])].map(x=>x.textContent.trim()).filter(Boolean);
+      const cleaned=notes.filter(x=>!/^\d+$/.test(x));if(cleaned.length)content+='\nSpeaker notes: '+cleaned.join(' ');break;
+    }
+    if(!content)content='No extractable text, speaker notes, or image description was found on this slide.';
+    pages.push({text:content,words:content.split(/\s+/).filter(Boolean).length});
+  }
+  return pages;
+}
+async function handlePptxFile(file){
+  state.pdfChunks=null;state.pdfTitle='';state.pdfParsing=true;state.pdfError='';
+  if(file.size>40*1024*1024){state.pdfParsing=false;state.pdfError='over 40MB';pdfStatus('PPTX is over 40MB — pick a smaller file.');return;}
+  pdfStatus(`Reading “${file.name}”… extracting slide text, notes and images.`);
+  try{const pages=await readPptx(file);await startDocumentLearning(file.name,file.name.replace(/\.pptx$/i,''),pages,'slide ');}
+  catch(e){state.pdfError=e.message||'read failed';pdfStatus(`Could not read that PowerPoint: ${state.pdfError}`);}
+  finally{state.pdfParsing=false;}
+}
+// OCR every sparse/scanned page, not just the first N pages.
+async function readScannedPages(pdf,pages,name,pageList){
+  const targets=pageList||pages.map((_,i)=>i+1);let done=0,failed=0;
+  pdfStatus(`“${name}”: reading ${targets.length} scanned or sparse pages with AI…`);
   async function one(p){
     const page=await pdf.getPage(p), vp0=page.getViewport({scale:1}), scale=Math.min(2,1500/Math.max(vp0.width,vp0.height));
     const vp=page.getViewport({scale}), canvas=document.createElement('canvas');
@@ -198,16 +259,15 @@ async function readScannedPages(pdf,pages,name){
     let q=0.72, url=canvas.toDataURL('image/jpeg',q);
     while(url.length>900000&&q>0.35){ q-=0.12; url=canvas.toDataURL('image/jpeg',q); }
     try{
-      const r=await api('/api/ocr',{image:url,page:p},70000);
-      const text=String(r.text||'').trim();
+      let text='';for(let attempt=0;attempt<2&&!text;attempt++){try{const r=await api('/api/ocr',{image:url,page:p},70000);text=String(r.text||'').trim();}catch(e){if(attempt===1)throw e;}}
       pages[p-1]={text,words:text?text.split(/\s+/).filter(Boolean).length:0};
-    }catch(e){ failed++; }
-    done++; pdfStatus(`“${name}”: read ${done} of ${n} scanned pages with AI…`);
+    }catch(e){failed++;pages[p-1]={text:'[AI could not extract this page after two attempts.]',words:0,ocrFailed:true};}
+    done++; pdfStatus(`“${name}”: read ${done} of ${targets.length} scanned/sparse pages…`);
   }
-  let next=1; const worker=async()=>{ while(next<=n){ const p=next++; await one(p); } };
+  let next=0; const worker=async()=>{ while(next<targets.length){ const p=targets[next++]; await one(p); } };
   await Promise.all([worker(),worker()]);
   const words=pages.reduce((s,pg)=>s+pg.words,0);
-  if(failed&&words) addChat('bot',`${failed} scanned ${failed===1?'page':'pages'} could not be read and ${failed===1?'is':'are'} skipped.`);
+  if(failed)addChat('bot',`${failed} scanned/sparse ${failed===1?'page could':'pages could'} not be read after retry; those page numbers are omitted from the visual sections.`);
   return words;
 }
 // ---- Continuous conversational loop: every answer queues visuals, the pump draws forever ----
@@ -339,7 +399,7 @@ const cleanFence=t=>String(t).replace(/^```(?:md|markdown|text)?[ \t]*\n/i,'').r
 async function explainStream(q,hist,bubble,onText){
   // Verified mode: the answer is written with Google Search and carries its sources (sources.js).
   const verified=!!(window.FactCheck&&FactCheck.enabled)&&!$('instantToggle')?.checked;
-  const r=await fetch('/api/explain',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({topic:q,history:hist,stream:true,ground:verified,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding'})});
+  const r=await fetch('/api/explain',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({topic:q,history:hist,stream:true,ground:verified,language:state.language,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding'})});
   const ctype=r.headers.get('content-type')||'';
   const render=t=>{ if(!bubble) return; bubble.classList.remove('thinking'); bubble.classList.add('flowing'); bubble.innerHTML=mdRender(t); };
   if(!ctype.includes('ndjson')){
@@ -395,6 +455,7 @@ function enqueueViz(p, priority){
   state.vizParts.splice(pos,0,Object.assign({html:null,ready:false,model:''},p));
   const waiting=state.vizParts.length-(state.vizIndex+1);
   chatStatus(waiting>1?`${waiting} visuals queued — drawing nonstop…`:chatStatusText());
+  syncVideoNavigation();
   pumpViz();
 }
 function chatStatusText(){ return 'Chat with your visual tutor'; }
@@ -405,7 +466,7 @@ function pumpViz(){
   const epoch=state.vizEpoch;
   while(state.vizNext<state.vizParts.length&&(state.vizActive||0)<VIZ_PARALLEL){
     const i=state.vizNext++, part=state.vizParts[i]; state.vizActive=(state.vizActive||0)+1;
-    genVizPart(i,epoch).finally(()=>{ if(epoch!==state.vizEpoch) return; state.vizActive--; playNextReady(); pumpViz(); maybeSaveGroup(part&&part.group); });
+  genVizPart(i,epoch).finally(()=>{ if(epoch!==state.vizEpoch) return; state.vizActive--;syncVideoNavigation();playNextReady(); pumpViz(); maybeSaveGroup(part&&part.group); });
   }
 }
 // Saved lectures (saved.js): once every part of a lecture is drawn (or has
@@ -461,8 +522,8 @@ async function genVizPart(i, epoch){
   chatStatus(`Drawing ${i+1}/${state.vizParts.length} — ${p.title}`);
   try{
     const body=p.kind==='doc'
-      ? {topic:p.title,pdf:true,source:`This is section ${i+1} of the uploaded document "${state.pdfTitle||'document'}" (pages ${p.pages}). Teach ONLY this section, completely and visually. Do not summarize other parts.\n\nSECTION TEXT:\n${p.text}`,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding'}
-      : {topic:p.title,visualize:true,source:`Teach these exact sentences in order, one beat per sentence, same words where possible. Do not add new facts.\n\n${p.text}`,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding'};
+      ? {topic:p.title,pdf:true,source:`This is section ${i+1} of the uploaded document "${state.pdfTitle||'document'}" (reference ${p.pages}). Teach ONLY this section, completely and visually. Cover all key details and examples present in it; do not summarize other parts.\n\nSECTION TEXT:\n${p.text}`,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding',language:state.language}
+      : {topic:p.title,visualize:true,source:`Teach these exact sentences in order, one beat per sentence, same words where possible. Do not add new facts.\n\n${p.text}`,level:'Undergraduate engineering; explain from fundamentals and build to rigorous understanding',language:state.language};
     const data=await api('/api/code-lesson',body);
     if(epoch!==state.vizEpoch) return null;
     if(!data.html||!data.html.includes('neuralelearn:lesson')) throw new Error('Visual came back unusable.');
@@ -472,10 +533,12 @@ async function genVizPart(i, epoch){
 }
 function loadVizPart(i){
   const p=state.vizParts[i]; if(!p||!p.ready) return;
+  if(window.BoardTools)BoardTools.reset();
   if(window.Computed)Computed.deactivate();
-  state.vizIndex=i;state.codeHtml=p.html;
+  state.vizIndex=i;state.codeHtml=p.html;state.index=0;state.beatIndex=0;state.frameHasBeat=false;state.frameSeeking=false;state.frameCompleted=false;state.frameTimeline=null;
   state.lessonLoadId++;state.postedBeats=new Set();state.lastChatScene=-1;state.lineNo=0;state.explainBubble=null;
   state.mode='code';
+  syncVideoNavigation();
   if(p.kind==='doc'&&state.postedPartText!==i){ postTextSentences(p.text); state.postedPartText=i; }
   else if(p.kind==='chat'&&p.el){ state.sentSpans=Array.from(p.el.querySelectorAll('.sent')); state.sentIdx=0; }
   else { state.sentSpans=null; }
@@ -520,11 +583,70 @@ function stopSpeech(){
   state.speech=null;
 }
 function sendFrameCommand(command, extra={}){try{const f=$('lessonFrame');if(!f||f.hidden)return;f.contentWindow?.postMessage({type:'neuralelearn:command',command,...extra},'*');if(command==='play')state.playSentAt=Date.now();}catch{}}
+function applyPendingFrameSeek(){
+  const target=state.pendingSeek;if(!target)return false;state.pendingSeek=null;
+  sendFrameCommand('pause');sendFrameCommand('seek',{...target,value:target.beatIndex});
+  if(state.autoPlay)setTimeout(()=>{if(state.mode==='code'&&state.autoPlay&&!state.paused)requestFramePlay(false);},180);
+  return true;
+}
+function requestFramePlay(waitForFirstBeat=true){
+  const frame=$('lessonFrame'),target=frame?.contentWindow;if(!target||frame.hidden)return;
+  const send=()=>{if(state.mode!=='code'||!state.autoPlay||state.paused||$('lessonFrame').contentWindow!==target||(waitForFirstBeat&&state.frameHasBeat))return;try{target.postMessage({type:'neuralelearn:command',command:'play',value:Number($('speed').value)},'*');state.playSentAt=Date.now();}catch{}};
+  [0,180,500,1100,2200,4000].forEach(ms=>setTimeout(send,ms));
+}
+function frameBeatList(){
+  const beats=[];let at=0;const rate=Number($('speed').value)||1;
+  (state.lesson?.scenes||[]).forEach((scene,si)=>(scene.beats||[]).forEach((beat,bi)=>{
+    const words=String(beat?.narration||'').trim().split(/\s+/).filter(Boolean).length;
+    const duration=beat?.narration?Math.max(6,Math.round(words*550/rate)+800)/1000:6.8;
+    beats.push({si,bi,at,duration});at+=duration;
+  }));
+  state.frameTimeline={beats,total:at};return state.frameTimeline;
+}
+function frameClock(seconds){const n=Math.max(0,Math.round(seconds||0));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;}
+function syncFrameControls(){
+  if(state.mode!=='code')return;const tl=frameBeatList(),cur=tl.beats.findIndex(b=>b.si===state.index&&b.bi===state.beatIndex),current=tl.beats[Math.max(0,cur)];
+  const seek=$('seek');if(!tl.beats.length){seek.disabled=true;return;}seek.disabled=false;
+  const elapsed=state.frameCompleted?tl.total:(current?current.at+(state.playing&&!state.paused?Math.min((performance.now()-state.frameBeatAt)/1000,current.duration):0):0);
+  if(!state.frameSeeking)seek.value=String(Math.round((tl.total?elapsed/tl.total:0)*1000));
+  $('timeNow').textContent=frameClock(state.frameSeeking?(Number(seek.value)/1000)*tl.total:elapsed);$('timeTotal').textContent=frameClock(tl.total);
+  $('prevBeat').disabled=cur<=0;$('nextBeat').disabled=cur<0||cur>=tl.beats.length-1;
+}
+function seekCodeBeat(si,bi){
+  const tl=frameBeatList();if(!tl.beats.length)return;
+  const target=tl.beats.find(b=>b.si===si&&b.bi===bi)||tl.beats[0];
+  state.frameSeeking=false;if(window.Voice)Voice.stop();state.lineRun++;state.subLine=null;state.index=target.si;state.beatIndex=target.bi;state.frameBeatAt=performance.now();state.frameCompleted=false;
+  sendFrameCommand('seek',{sceneIndex:target.si,beatIndex:target.bi,value:target.bi});syncFrameControls();
+  if(state.playing&&!state.paused)setTimeout(()=>{if(state.mode==='code'&&state.playing&&!state.paused)requestFramePlay(false);},120);
+}
+function seekCodePosition(value){
+  const tl=frameBeatList();if(!tl.beats.length)return;const t=Math.max(0,Math.min(1,Number(value)/1000))*tl.total;
+  let target=tl.beats[0];for(const b of tl.beats){if(b.at<=t)target=b;else break;}seekCodeBeat(target.si,target.bi);
+}
+setInterval(()=>{if(state.mode==='code'&&state.frameHasBeat&&state.playing&&!state.paused&&!state.frameSeeking)syncFrameControls();},250);
+function stepCodeBeat(delta){const tl=frameBeatList(),at=tl.beats.findIndex(b=>b.si===state.index&&b.bi===state.beatIndex);if(at<0)return;const target=tl.beats[Math.max(0,Math.min(tl.beats.length-1,at+delta))];if(target)seekCodeBeat(target.si,target.bi);}
+function syncVideoNavigation(){
+  const active=state.mode==='code',i=state.vizIndex;
+  $('prevScene').disabled=!active||i<0||!state.vizParts.slice(0,i).some(p=>!p.failed);
+  $('nextScene').disabled=!active||i<0||!state.vizParts.slice(i+1).some(p=>!p.failed);
+  $('prevScene').title=active?'Previous section':'Previous scene';$('nextScene').title=active?'Next section':'Next scene';
+  $('prevScene').setAttribute('aria-label',active?'Previous section':'Previous scene');$('nextScene').setAttribute('aria-label',active?'Next section':'Next scene');
+}
+async function jumpVisualPart(delta){
+  if(state.mode!=='code'||state.vizIndex<0)return;let i=state.vizIndex+delta;
+  while(i>=0&&i<state.vizParts.length&&state.vizParts[i]?.failed)i+=delta;
+  if(i<0||i>=state.vizParts.length)return;
+  const target=state.vizParts[i],epoch=state.vizEpoch;stopPlayback();syncVideoNavigation();chatStatus(`Preparing ${target.title}…`);
+  const deadline=Date.now()+180000;
+  while(!target.ready&&!target.failed&&epoch===state.vizEpoch&&Date.now()<deadline)await new Promise(r=>setTimeout(r,250));
+  if(epoch!==state.vizEpoch)return;
+  if(target.ready)loadVizPart(i);else{chatStatus(`Could not open ${target.title}.`);syncVideoNavigation();}
+}
 function stopPlayback(){if(state.mode==='computed'&&window.Computed){Computed.pause();return;}state.runId++;state.playing=false;state.paused=false;state.autoPlay=false;stopSpeech();if(state.mode==='code')sendFrameCommand('pause');setBusy(false);}
 function loadCodeFrame(html, seekIndex=null, fresh=false){
   const frame=$('lessonFrame');
-  state.pendingSeek=Number.isInteger(seekIndex)?seekIndex:null;
-  state.autoPlay=true; state.playing=true; state.paused=false; state.runId++;
+  state.pendingSeek=Number.isInteger(seekIndex)?{sceneIndex:seekIndex,beatIndex:0}:seekIndex&&Number.isInteger(seekIndex.sceneIndex)?{sceneIndex:seekIndex.sceneIndex,beatIndex:Math.max(0,Number(seekIndex.beatIndex)||0)}:null;
+  state.autoPlay=true; state.playing=true; state.paused=false; state.frameHasBeat=false;state.frameSeeking=false;state.frameTimeline=null;state.frameCompleted=false; state.runId++;
   state.lastBeatAt=Date.now(); if(fresh) state.stalls=0;
   // Error forwarder: surfaces the generated program's real JS errors to the
   // parent (sandboxed iframes can't be inspected otherwise). Independent
@@ -535,15 +657,14 @@ function loadCodeFrame(html, seekIndex=null, fresh=false){
   frame.hidden=false;
   frame.onload=()=>{
     if(state.mode!=='code')return;
-    // Send play immediately + again shortly after — covers generated code that
-    // attaches its listener late. play is idempotent by protocol.
-    sendFrameCommand('play',{value:Number($('speed').value)});
-    setTimeout(()=>{if(state.mode==='code'&&state.autoPlay&&!state.lesson?.scenes?.length)sendFrameCommand('play',{value:Number($('speed').value)});},800);
+    // Retry the start handshake briefly; generated programs can attach their
+    // message listener after the iframe load event. Stop retries on first beat.
+    if(!applyPendingFrameSeek())requestFramePlay();
     setTimeout(()=>{
       if(state.mode!=='code'||!state.autoPlay)return;
       // If still no beat after load, resend + seek if requested
-      if(state.pendingSeek!=null){sendFrameCommand('seek',{sceneIndex:state.pendingSeek});state.pendingSeek=null;}
-      else if(Date.now()-state.lastBeatAt>4000)sendFrameCommand('play',{value:Number($('speed').value)});
+      if(state.pendingSeek)applyPendingFrameSeek();
+      else if(!state.frameHasBeat)requestFramePlay();
     },1500);
     $('playBtn').disabled=false;$('resetBtn').disabled=false;$('playBtn').textContent='Ⅱ Pause';
   };
@@ -556,7 +677,7 @@ function loadCodeFrame(html, seekIndex=null, fresh=false){
 function hardRestartCode(seekIndex=null, fresh=false){
   if(!state.codeHtml){sendFrameCommand('replay',{value:Number($('speed').value)});return;}
   stopSpeech();
-  state.index=Number.isInteger(seekIndex)?seekIndex:0;state.beatIndex=0;
+  state.index=Number.isInteger(seekIndex)?seekIndex:Math.max(0,Number(seekIndex?.sceneIndex)||0);state.beatIndex=Number.isInteger(seekIndex?.beatIndex)?seekIndex.beatIndex:0;
   $('playBtn').textContent='Ⅱ Pause';
   loadCodeFrame(state.codeHtml, seekIndex, fresh);
 }
@@ -705,11 +826,11 @@ async function playLoop(){
   if(state.mode==='code'){
     // Stuck recovery: playing but no beat for 25s -> hard reload instead of toggling pause
     const stuck = state.playing && !state.paused && state.lastBeatAt && (Date.now()-state.lastBeatAt>25000);
-    if(stuck){hardRestartCode(state.index);return;}
-    if(state.playing&&!state.paused){state.paused=true;state.autoPlay=false;sendFrameCommand('pause');if(window.Voice)Voice.pause();$('playBtn').textContent='▶ Resume';return;}
-    if(state.playing&&state.paused){state.paused=false;state.autoPlay=true;state.lastBeatAt=Date.now();sendFrameCommand('play',{value:Number($('speed').value)});if(window.Voice)Voice.resume();$('playBtn').textContent='Ⅱ Pause';return;}
+    if(stuck){hardRestartCode({sceneIndex:state.index,beatIndex:state.beatIndex});return;}
+    if(state.playing&&!state.paused){if(!state.frameHasBeat){requestFramePlay();chatStatus('Starting the visual lesson…');return;}state.paused=true;state.autoPlay=false;sendFrameCommand('pause');if(window.Voice)Voice.pause();$('playBtn').textContent='▶ Resume';return;}
+    if(state.playing&&state.paused){state.paused=false;state.autoPlay=true;state.lastBeatAt=Date.now();requestFramePlay(false);if(window.Voice)Voice.resume();$('playBtn').textContent='Ⅱ Pause';return;}
     // Not playing (finished or fresh): if we have html, hard-restart to guarantee start
-    if(state.codeHtml){hardRestartCode(0);return;}
+    if(state.codeHtml){hardRestartCode(state.frameCompleted?0:{sceneIndex:state.index,beatIndex:state.beatIndex},state.frameCompleted);return;}
     state.playing=true;state.paused=false;state.autoPlay=true;sendFrameCommand('play',{value:Number($('speed').value)});$('playBtn').textContent='Ⅱ Pause';$('playBtn').disabled=false;return;}
   if(state.playing&&!state.paused){state.paused=true;if(state.voiceAvailable)window.speechSynthesis.pause();try{$('sceneSvg').pauseAnimations();}catch{}$('sceneSvg').classList.add('paused');$('playBtn').textContent='▶ Resume';return;}
   if(state.playing&&state.paused){state.paused=false;if(state.voiceAvailable)window.speechSynthesis.resume();try{$('sceneSvg').unpauseAnimations();}catch{}$('sceneSvg').classList.remove('paused');$('playBtn').textContent='Ⅱ Pause';return;}
@@ -755,22 +876,23 @@ window.addEventListener('message',event=>{
   if(d.type==='neuralelearn:lesson'){
     stopThinking();
     if(state.codeInitTimer){clearTimeout(state.codeInitTimer);state.codeInitTimer=null;}
-    const scenes=Array.isArray(d.scenes)?d.scenes.slice(0,40).map((x,i)=>({title:String(x.title||`Part ${i+1}`).slice(0,180),summary:String(x.summary||'').slice(0,400),beats:[]})):[];
+    const scenes=Array.isArray(d.scenes)?d.scenes.slice(0,40).map((x,i)=>({title:String(x.title||`Part ${i+1}`).slice(0,180),summary:String(x.summary||'').slice(0,400),beats:Array.from({length:Math.max(0,Math.min(400,Number(x.beats)||0))},()=>null)})):[];
     state.lesson={title:String(d.title||$('lessonTitle').textContent),scenes,learningGoals:[],summary:scenes.map(x=>x.summary).filter(Boolean),practice:[]};
-    state.lastBeatAt=Date.now();
+    state.lastBeatAt=Date.now();state.frameCompleted=false;state.frameTimeline=null;
     state.lessonLoadId++; state.postedBeats=new Set(); state.lastChatScene=-1;
     $('lessonTitle').textContent=state.lesson.title;state.lineNo=0;state.explainBubble=null;$('sceneCounter').textContent='Ready to learn';$('sceneKind').textContent='LIVE CODE';chatStatus('Full explanation streaming below');$('playBtn').disabled=false;$('resetBtn').disabled=false;
+    syncFrameControls();
     hideError();
     // Guarantee start even if the early play was missed: lesson arrived, so listener is alive now
     if(state.autoPlay){
       sendFrameCommand('play',{value:Number($('speed').value)});
-      if(state.pendingSeek!=null){setTimeout(()=>sendFrameCommand('seek',{sceneIndex:state.pendingSeek}),600);state.pendingSeek=null;}
+      if(state.pendingSeek)applyPendingFrameSeek();
     }
   }
   if(d.type==='neuralelearn:beat'){
-    state.lastBeatAt=Date.now();state.stalls=0;hideError();
+    state.lastBeatAt=Date.now();state.frameBeatAt=performance.now();state.frameHasBeat=true;state.frameCompleted=false;state.stalls=0;hideError();
     const sceneIndex=Math.max(0,Number(d.sceneIndex)||0),beatIndex=Math.max(0,Number(d.beatIndex)||0);state.index=sceneIndex;state.beatIndex=beatIndex;
-    const scene=state.lesson?.scenes?.[sceneIndex];if(scene){scene.beats=scene.beats||[];scene.beats[beatIndex]={narration:String(d.narration||''),subtitle:String(d.subtitle||''),durationSeconds:Math.max(2,(Number(d.durationMs)||6000)/1000)};}
+    const scene=state.lesson?.scenes?.[sceneIndex];if(scene){scene.beats=scene.beats||[];while(scene.beats.length<=beatIndex)scene.beats.push(null);scene.beats[beatIndex]={narration:String(d.narration||''),subtitle:String(d.subtitle||''),durationSeconds:Math.max(2,(Number(d.durationMs)||6000)/1000)};}
     $('lessonTitle').textContent=String(d.title||state.lesson?.title||'NeuraLearn');$('sceneKind').textContent='LIVE CODE';
     const bkey=state.lessonLoadId+':'+sceneIndex+':'+beatIndex;
     if(state.postedBeats&&!state.postedBeats.has(bkey)){
@@ -781,6 +903,7 @@ window.addEventListener('message',event=>{
       if(sc)sc.textContent=total?`Line ${state.lineNo} of ${total}`:`Line ${state.lineNo}`;
     }
     const total=Math.max(1,Number(d.totalScenes)||state.lesson?.scenes.length||1),beats=Math.max(1,Number(d.totalBeats)||1);$('progressFill').style.width=`${Math.min(100,((sceneIndex+(beatIndex+1)/beats)/total)*100)}%`;
+    syncFrameControls();
     // Every lecture line gets the pointer, a subtitle and the chosen voice.
     try{$('lessonFrame').contentWindow.postMessage({type:'neuralelearn:kit',event:'beat'},'*');}catch{}
     const line=String(d.narration||d.subtitle||'').trim();
@@ -796,7 +919,7 @@ window.addEventListener('message',event=>{
       pumpViz();
       return;
     }
-    state.playing=false;state.paused=false;state.autoPlay=false;setBusy(false);$('playBtn').textContent='↺ Replay lesson';
+    state.playing=false;state.paused=false;state.autoPlay=false;state.frameCompleted=true;setBusy(false);$('playBtn').textContent='↺ Replay lesson';syncFrameControls();
     document.dispatchEvent(new CustomEvent('lecture:ended'));}
   if(d.type==='neuralelearn:error')addChat('bot',`Visual error: ${String(d.message||'Unknown error')} — the lesson's own script reported this. If playback stalls, hit ↺ Replay or Retry.`);
 });
@@ -837,11 +960,17 @@ const THINK_STEPS=['Understanding your topic','Analysing the concept','Writing t
 function startThinking(){stopThinking();const ov=$('thinkOverlay');if(ov)ov.hidden=false;let i=0;const tick=()=>{const msg=THINK_STEPS[i%THINK_STEPS.length];i++;chatStatus(msg+'…');const tm=$('thinkMsg');if(tm){tm.textContent=msg;tm.style.animation='none';void tm.offsetWidth;tm.style.animation='';}};tick();state.thinkTimer=setInterval(tick,2200);}
 function stopThinking(){if(state.thinkTimer){clearInterval(state.thinkTimer);state.thinkTimer=null;}const ct=$('chatThread');if(ct)ct.querySelectorAll('.chatmsg.thinking').forEach(m=>m.remove());const ov=$('thinkOverlay');if(ov)ov.hidden=true;}
 $('playBtn').addEventListener('click',playLoop);$('resetBtn').addEventListener('click',resetPlayback);
+$('prevBeat').addEventListener('click',()=>{if(state.mode==='code')stepCodeBeat(-1);});
+$('nextBeat').addEventListener('click',()=>{if(state.mode==='code')stepCodeBeat(1);});
+$('prevScene').addEventListener('click',()=>{if(state.mode==='code')jumpVisualPart(-1);});
+$('nextScene').addEventListener('click',()=>{if(state.mode==='code')jumpVisualPart(1);});
+$('seek').addEventListener('input',()=>{if(state.mode!=='code')return;state.frameSeeking=true;const tl=frameBeatList();$('timeNow').textContent=frameClock((Number($('seek').value)/1000)*tl.total);$('timeTotal').textContent=frameClock(tl.total);});
+$('seek').addEventListener('change',()=>{if(state.mode!=='code')return;seekCodePosition($('seek').value);});
 $('speed').addEventListener('input',()=>{$('speedLabel').textContent=`${Number($('speed').value).toFixed(2).replace(/0$/,'')}×`;if(state.mode==='code')sendFrameCommand('speed',{value:Number($('speed').value)});});
 $('settingsToggle').addEventListener('click',()=>$('settingsDialog').showModal());
 document.querySelectorAll('[data-topic]').forEach(btn=>btn.addEventListener('click',()=>submitChat(btn.dataset.topic)));
 const pdfInput=$('pdfInput');
-if(pdfInput)pdfInput.addEventListener('change',e=>{handlePdfFile(e.target.files&&e.target.files[0]);});
+if(pdfInput)pdfInput.addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f&&/\.pptx$/i.test(f.name))handlePptxFile(f);else handlePdfFile(f);e.target.value='';});
 const pdfBtn=$('pdfBtn');
 if(pdfBtn)pdfBtn.addEventListener('click',()=>{const pi=$('pdfInput');if(pi)pi.click();});
 const chatInput=$('chatInput');
@@ -851,10 +980,10 @@ const newChatBtn=$('newChatBtn');
 if(newChatBtn)newChatBtn.addEventListener('click',()=>{
   stopPlayback();
   if(window.Computed){Computed.deactivate();if(state.mode==='computed')state.mode='legacy';}
-  state.vizEpoch=(state.vizEpoch||0)+1;state.vizActive=0;
+  state.vizEpoch=(state.vizEpoch||0)+1;state.vizActive=0;state.documentGeneration++;
   state.vizParts=[];state.vizNext=0;state.vizIndex=-1;state.vizPendingAdvance=false;
   state.chatHistory=[];state.lastQ='';state.lesson=null;state.codeHtml='';
-  state.pdfChunks=null;state.pdfTitle='';const pi=$('pdfInput');if(pi)pi.value='';pdfStatus('No PDF attached.');
+  state.pdfChunks=null;state.pdfTitle='';const pi=$('pdfInput');if(pi)pi.value='';pdfStatus('PDF and PPTX · complete section-by-section lessons');
   const box=$('chatThread');if(box)box.replaceChildren();
   addChat('bot','Fresh chat — ask any concept, I explain and draw nonstop.');
   $('welcome').hidden=false;$('sceneSvg').hidden=true;$('lessonFrame').hidden=true;{const ts=$('tsub');if(ts)ts.hidden=true;}
