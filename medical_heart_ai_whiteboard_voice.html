@@ -6,9 +6,8 @@
 <title>Medical AI Whiteboard — Heart Anatomy & Physiology</title>
 <style>
 *{box-sizing:border-box}
-html,body{min-height:100%;margin:0}
-body{background:#e8e4dc;font-family:Arial,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:2vh 0}
-.app{width:min(1320px,97vw);height:min(850px,96vh);min-height:0;background:#fffdf8;border:1px solid #d5cec1;border-radius:20px;box-shadow:0 18px 55px #0002;display:grid;grid-template-columns:minmax(0,1fr) 350px;overflow:hidden}
+body{margin:0;background:#e8e4dc;font-family:Arial,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center}
+.app{width:min(1320px,97vw);height:min(850px,96vh);background:#fffdf8;border:1px solid #d5cec1;border-radius:20px;box-shadow:0 18px 55px #0002;display:grid;grid-template-columns:1fr 350px;overflow:hidden}
 .board{background:#fffefb;position:relative}
 svg{width:100%;height:100%}
 .draw{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
@@ -29,11 +28,11 @@ svg{width:100%;height:100%}
 .pulse{fill:none;stroke:#b32732;stroke-width:4;opacity:0}
 .appear{animation:appear .45s ease forwards}
 @keyframes appear{to{opacity:1}}
-.side{background:#f3efe7;border-left:1px solid #d9d1c5;padding:21px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.side{background:#f3efe7;border-left:1px solid #d9d1c5;padding:21px;display:flex;flex-direction:column}
 .badge{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.55}
 h2{margin:6px 0 12px;font-size:22px}
 .topic{font-size:12px;opacity:.6;margin-bottom:10px}
-.chat{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:8px;overscroll-behavior:contain;scrollbar-gutter:stable}
+.chat{flex:1;overflow:auto;padding-right:3px}
 .msg{padding:11px 13px;border-radius:13px;margin:8px 0;line-height:1.42;font-size:14px;opacity:.18;transform:translateY(7px);transition:.35s}
 .msg.active{opacity:1;transform:none}
 .msg.ai{background:#fff;border:1px solid #ddd5c8}
@@ -45,33 +44,12 @@ button.secondary{background:#ddd5c8;color:#222}
 .bar{height:100%;width:0;background:#222;transition:width .4s}
 .status{font-size:11px;opacity:.55;margin-top:7px;text-align:center}
 .legend{position:absolute;left:22px;bottom:18px;font-size:11px;opacity:.45}
-.controls{flex-shrink:0}
-aside>.controls{margin:12px 0 0}
-aside>.voice-speed{margin-top:8px!important}
-@media(max-width:700px){
- body{display:block;padding:12px}
- .app{width:100%;height:auto;min-height:calc(100vh - 24px);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(420px,62vh) minmax(420px,auto);overflow:visible}
- .board{min-height:420px}
- .side{min-height:560px;border-left:0;border-top:1px solid #d9d1c5}
- .chat{max-height:60vh;min-height:220px}
-}
 </style>
 </head>
 <body>
 <div class="app">
 <section class="board">
 <svg viewBox="0 0 970 850">
-<defs>
-<marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
-<path d="M0 0 L10 5 L0 10 Z" fill="#2b72b8"/>
-</marker>
-<marker id="arrowRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
-<path d="M0 0 L10 5 L0 10 Z" fill="#c93d32"/>
-</marker>
-<marker id="arrowCoronary" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
-<path d="M0 0 L10 5 L0 10 Z" fill="#a82b35"/>
-</marker>
-</defs>
 <text id="title" class="title" x="35" y="42">Human Heart — Anatomy & Blood Flow</text>
 <text id="orientation" class="small" x="35" y="68">Anterior view • patient's right is on the viewer's left</text>
 
@@ -79,7 +57,7 @@ aside>.voice-speed{margin-top:8px!important}
 <path id="svc" class="draw vesselBlue" d="M300 85 L300 235"/>
 <path id="ivc" class="draw vesselBlue" d="M300 650 L300 505"/>
 <path id="pa" class="draw vesselBlue" d="M365 230 C345 165 285 120 210 105"/>
-<path id="pv" class="draw vesselRed" d="M795 110 C720 125 650 160 610 230"/>
+<path id="pv" class="draw vesselRed" d="M610 230 C650 160 720 125 795 110"/>
 <path id="aorta" class="draw vesselRed" d="M555 235 C545 150 600 95 675 105 C760 118 770 205 735 275"/>
 <path id="aortaDown" class="draw vesselRed" d="M735 275 C720 360 700 465 680 620"/>
 
@@ -109,9 +87,9 @@ aside>.voice-speed{margin-top:8px!important}
 <path id="cor5" class="coronary" d="M600 310 C580 330 560 345 535 355"/>
 
 <!-- labels -->
-<text id="svcL" class="label" x="235" y="125">Superior vena cava</text>
+<text id="svcL" class="label" x="210" y="92">Superior vena cava</text>
 <text id="ivcL" class="label" x="180" y="665">Inferior vena cava</text>
-<text id="paL" class="label" x="25" y="92">Pulmonary artery → lungs</text>
+<text id="paL" class="label" x="105" y="92">Pulmonary artery → lungs</text>
 <text id="pvL" class="label" x="720" y="92">Pulmonary veins ← lungs</text>
 <text id="aoL" class="label" x="770" y="250">Aorta</text>
 
@@ -139,23 +117,13 @@ aside>.voice-speed{margin-top:8px!important}
 
 <text id="summary" class="label" x="210" y="810">Body → right heart → lungs → left heart → body</text>
 </svg>
-<div class="legend">Arrowheads show blood-flow direction • Educational visualization; anatomy is simplified for teaching.</div>
+<div class="legend">Educational visualization — anatomy is simplified for teaching, not a clinical atlas.</div>
 </section>
 
 <aside class="side">
 <div class="badge">Medical AI Whiteboard Teacher</div>
 <h2>Heart: Detailed Lesson</h2>
 <div class="topic">Anatomy → valves → circulation → coronary supply → cardiac cycle</div>
-<div class="controls">
-<button onclick="startLesson()">▶ Teach with voice</button>
-<button class="secondary" onclick="toggleVoice()" id="voiceBtn">🔊 Voice: On</button>
-<button class="secondary" onclick="resetLesson()">↺</button>
-</div>
-<div class="voice-speed" style="font-size:12px;display:flex;align-items:center;gap:8px">
-<label for="voiceSpeed">Voice speed</label>
-<input id="voiceSpeed" type="range" min="0.7" max="1.5" step="0.1" value="1" style="flex:1;min-width:0">
-<span id="voiceSpeedValue">1.0×</span>
-</div>
 <div class="chat">
 <div id="m1" class="msg ai">Let's first orient the heart. In an anterior view, the patient's right side appears on our left. The heart has four chambers and a muscular septum separating the right and left sides.</div>
 <div id="m2" class="msg ai">The superior and inferior venae cavae return deoxygenated blood from the systemic circulation to the right atrium.</div>
@@ -184,36 +152,7 @@ aside>.voice-speed{margin-top:8px!important}
 </div>
 
 <script>
-let voiceEnabled=true;
-let lessonHasVoice=true;
-const voiceSupported="speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-function toggleVoice(){
- voiceEnabled=!voiceEnabled;
- document.getElementById("voiceBtn").textContent=voiceEnabled?"🔊 Voice: On":"🔇 Voice: Off";
- if(!voiceEnabled && voiceSupported) speechSynthesis.cancel();
-}
-function speakMessage(id){
- if(!voiceEnabled || !lessonHasVoice || !voiceSupported) return Promise.resolve();
- const el=document.getElementById(id);
- if(!el) return Promise.resolve();
- speechSynthesis.cancel();
- const utterance=new SpeechSynthesisUtterance(el.textContent.trim());
- utterance.rate=Number(document.getElementById("voiceSpeed").value)||1;
- utterance.lang="en-US";
- const finished=new Promise(resolve=>{utterance.onend=resolve;utterance.onerror=resolve;});
- speechSynthesis.speak(utterance);
- return finished;
-}
-document.getElementById("voiceSpeed").addEventListener("input",e=>{
- document.getElementById("voiceSpeedValue").textContent=Number(e.target.value).toFixed(1)+"×";
-});
-if(!voiceSupported){
- document.getElementById("voiceBtn").textContent="Voice unavailable";
- document.getElementById("voiceBtn").disabled=true;
- document.getElementById("status").textContent="Voice playback is not supported in this browser";
-}
 const paths=["svc","ivc","pa","pv","aorta","aortaDown","heartOutline","septum","cor1","cor2","cor3","cor4","cor5"];
-const arrowMarkers={svc:"arrowBlue",ivc:"arrowBlue",pa:"arrowBlue",pv:"arrowRed",aorta:"arrowRed",aortaDown:"arrowRed",cor1:"arrowCoronary",cor2:"arrowCoronary",cor3:"arrowCoronary",cor4:"arrowCoronary",cor5:"arrowCoronary"};
 paths.forEach(id=>{
  const e=document.getElementById(id);
  const len=e.getTotalLength();
@@ -226,89 +165,77 @@ function appear(id){document.getElementById(id).classList.add("appear")}
 function active(id){
  document.querySelectorAll(".msg").forEach(e=>e.classList.remove("active"));
  document.getElementById(id).classList.add("active");
- return speakMessage(id);
 }
 function status(s,n){document.getElementById("status").textContent=s;document.getElementById("bar").style.width=n+"%"}
 function draw(id,ms){
  return new Promise(resolve=>{
   const e=document.getElementById(id);
-  if(arrowMarkers[id]) e.setAttribute("marker-end",`url(#${arrowMarkers[id]})`);
   e.style.transition=`stroke-dashoffset ${ms}ms cubic-bezier(.2,.75,.2,1)`;
   requestAnimationFrame(()=>e.style.strokeDashoffset="0");
   setTimeout(resolve,ms+100);
  });
 }
 function resetLesson(){
- if(voiceSupported) speechSynthesis.cancel();
  document.querySelectorAll(".msg").forEach(e=>e.classList.remove("active"));
  document.querySelectorAll(".appear").forEach(e=>e.classList.remove("appear"));
  paths.forEach(id=>{
   const e=document.getElementById(id);
-  e.style.transition="none";e.style.strokeDashoffset=e.getTotalLength();e.removeAttribute("marker-end");
+  e.style.transition="none";e.style.strokeDashoffset=e.getTotalLength();
  });
  ["ra","rv","la","lv","tri","pulv","mitral","aov","f1","f2","f3","f4","f5","f6"].forEach(id=>document.getElementById(id).style.opacity=0);
  status("Ready",0);
 }
-async function startLesson(withVoice=true){
- resetLesson();
- lessonHasVoice=withVoice;
- await sleep(120);
+async function startLesson(){
+ resetLesson();await sleep(500);
 
  status("Orienting the anatomy…",7);
- const narration1=active("m1");
- appear("title");appear("orientation");
+ active("m1");appear("title");appear("orientation");
  await draw("heartOutline",1600);await draw("septum",800);
  appear("ra");appear("rv");appear("la");appear("lv");
  appear("raL");appear("rvL");appear("laL");appear("lvL");appear("sepL");
- await narration1;await sleep(300);
+ await sleep(2600);
 
  status("Systemic venous return…",17);
- const narration2=active("m2");
- appear("svcL");appear("ivcL");
+ active("m2");appear("svcL");appear("ivcL");
  await draw("svc",900);await draw("ivc",900);appear("f1");
- await narration2;await sleep(300);
+ await sleep(2100);
 
  status("Right heart filling…",28);
- const narration3=active("m3");
- appear("tri");appear("triL");await sleep(500);appear("f2");
- await narration3;await sleep(300);
+ active("m3");appear("tri");appear("triL");
+ await sleep(800);appear("f2");await sleep(2200);
 
  status("Pulmonary circulation…",39);
- const narration4=active("m4");
- appear("pulv");await draw("pa",1200);appear("paL");appear("f3");
- await narration4;await sleep(300);
+ active("m4");appear("pulv");await draw("pa",1200);appear("paL");appear("f3");
+ await sleep(2500);
 
  status("Pulmonary venous return…",50);
- const narration5=active("m5");
- await draw("pv",1200);appear("pvL");appear("f4");
- await narration5;await sleep(300);
+ active("m5");await draw("pv",1200);appear("pvL");appear("f4");
+ await sleep(2400);
 
  status("Left ventricular filling…",61);
- const narration6=active("m6");
- appear("mitral");appear("mitL");appear("f5");
- await narration6;await sleep(300);
+ active("m6");appear("mitral");appear("mitL");appear("f5");
+ await sleep(2400);
 
  status("Systemic ejection…",72);
- const narration7=active("m7");
- appear("aov");await draw("aorta",1200);await draw("aortaDown",900);appear("aoL");appear("f6");
- await narration7;await sleep(300);
+ active("m7");appear("aov");await draw("aorta",1200);await draw("aortaDown",900);appear("aoL");appear("f6");
+ await sleep(2600);
 
  status("Coronary circulation…",84);
- const narration8=active("m8");
+ active("m8");
  await Promise.all([draw("cor1",900),draw("cor2",900),draw("cor3",1000),draw("cor4",700),draw("cor5",700)]);
- appear("corL");await narration8;await sleep(300);
+ appear("corL");
+ await sleep(2400);
 
  status("Cardiac cycle…",92);
- const narration9=active("m9");
- appear("cycleTitle");appear("cycle");appear("pulse");
- await narration9;await sleep(300);
+ active("m9");appear("cycleTitle");appear("cycle");appear("pulse");
+ await sleep(3000);
 
  status("Final pathway",100);
- const narration10=active("m10");appear("summary");
- await narration10;
+ active("m10");appear("summary");
+ await sleep(4000);
  status("Lesson complete — ready for questions",100);
 }
-status("Ready — click Teach with voice to draw the heart as it is explained",0);
+startLesson();
 </script>
 </body>
 </html>
