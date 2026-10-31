@@ -658,7 +658,7 @@ input:focus-visible+.track{outline:2px solid var(--accent);outline-offset:2px}
 .boardpane{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;min-width:0}
 .boardmain{display:grid;gap:12px;min-width:0;align-content:start}
 .boardwrap{overflow:auto;border-radius:12px}
-.boardwrap.zoomed{max-height:72vh}
+.boardwrap.zoomed{height:72vh;max-height:72vh;overflow:auto;overscroll-behavior:contain}
 .board{position:relative;width:100%;aspect-ratio:1.45;min-height:300px;background:#fff!important;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:grid;place-items:center;box-shadow:none}
 .board:after{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(#e6e9f3 .9px,transparent .9px);background-size:22px 22px;opacity:.7}
 .board svg{position:absolute;inset:0;width:100%;height:100%;z-index:1}
@@ -922,10 +922,10 @@ footer{display:none}
 .verifyrow.off strong{color:var(--muted)}
 
 /* board notes shown while the lecture visual is generated */
-.notesboard{position:absolute;inset:0;z-index:3;padding:clamp(16px,4cqw,40px) clamp(18px,5cqw,52px);display:flex;flex-direction:column;gap:clamp(6px,1.2cqw,12px);background:#fff;color:#121a3a;overflow:hidden}
+.notesboard{position:absolute;inset:0;z-index:3;padding:clamp(16px,4cqw,40px) clamp(18px,5cqw,52px);display:flex;flex-direction:column;gap:clamp(6px,1.2cqw,12px);background:#fff;color:#121a3a;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;touch-action:pan-y}
 .notesboard .nbtag{margin:0;font-size:clamp(10px,1.3cqw,12px);font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#5b5bf0}
 .notesboard h3{margin:0;font-size:clamp(16px,3cqw,28px);color:#121a3a}
-.notesboard ol{margin:4px 0 0;padding-left:1.3em;display:grid;gap:clamp(4px,1cqw,10px);font-size:clamp(12px,1.9cqw,17px);line-height:1.45}
+.notesboard ol{margin:4px 0 0;padding-left:1.3em;display:grid;gap:clamp(4px,1cqw,10px);font-size:clamp(12px,1.9cqw,17px);line-height:1.45;flex:none}
 .notesboard li{animation:nbin .5s ease both;padding:2px 6px;border-radius:6px}
 .notesboard li:last-child{background:linear-gradient(transparent 62%,#fff1b8 62%)}
 .notesboard li::marker{color:#5b5bf0;font-weight:800}

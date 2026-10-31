@@ -14,7 +14,7 @@
   const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
   const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } };
   const V = {
-    choice: pref('nl.voiceChoice') || 'natural:Kore', style: pref('nl.voiceStyle') || 'professor',
+    choice: pref('nl.voiceChoice') || 'natural:Sulafat', style: pref('nl.voiceStyle') || 'professor', language: pref('nl.language') || 'English',
     natural: null, reason: '', rpm: 3,
     voices: [{ id: 'Kore', description: 'Firm' }], styles: [{ id: 'professor', label: 'Patient professor' }],
     chunks: new Map(), byLine: new Map(), queue: [], sent: [], holdUntil: 0, timer: 0, current: null,
@@ -74,7 +74,7 @@
   }
   function send(chunk) {
     V.sent.push(Date.now()); chunk.state = 'loading';
-    fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lines: chunk.lines, voice: chunk.voice, style: chunk.style }) })
+    fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lines: chunk.lines, voice: chunk.voice, style: chunk.style, language: chunk.language }) })
       .then(async r => {
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw Object.assign(new Error(e.error || `Voice failed (${r.status})`), { status: r.status, retryAfter: e.retryAfter, daily: e.daily }); }
         const segments = JSON.parse(r.headers.get('x-segments') || '[]'), blob = await r.blob();
@@ -96,17 +96,17 @@
   // urgent first. Cheap to call often; a group already requested is skipped.
   function prefetch(groups) {
     if (!naturalOn() || V.natural === null) return;
-    const voice = naturalVoice(), style = V.style;
+    const voice = naturalVoice(), style = V.style, language = V.language;
     groups.map(g => g.map(norm).filter(Boolean)).filter(g => g.length).forEach((lines, order) => {
       for (let i = 0; i < lines.length; i += 12) {
-        const part = lines.slice(i, i + 12), key = `${voice}|${style}|${part.join('␞')}`;
+        const part = lines.slice(i, i + 12), key = `${voice}|${style}|${language}|${part.join('␞')}`;
         let chunk = V.chunks.get(key);
         if (!chunk) {
-          chunk = { key, lines: part, voice, style, state: 'checking' };
+          chunk = { key, lines: part, voice, style, language, state: 'checking' };
           chunk.promise = new Promise((resolve, reject) => { chunk.resolve = resolve; chunk.reject = reject; });
           chunk.promise.catch(() => {});
           V.chunks.set(key, chunk);
-          part.forEach((text, index) => V.byLine.set(`${voice}|${style}|${text}`, { key, index }));
+          part.forEach((text, index) => V.byLine.set(`${voice}|${style}|${language}|${text}`, { key, index }));
           const urgent = order === 0 && i === 0;
           store.get(key).then(hit => {
             if (hit && hit.blob) { chunk.state = 'ready'; chunk.saved = true; chunk.resolve({ url: URL.createObjectURL(hit.blob), segments: hit.segments || [] }); return; }
@@ -125,7 +125,7 @@
     }
     schedule();
   }
-  const hasLine = text => naturalOn() && V.byLine.has(`${naturalVoice()}|${V.style}|${norm(text)}`);
+  const hasLine = text => naturalOn() && V.byLine.has(`${naturalVoice()}|${V.style}|${V.language}|${norm(text)}`);
 
   function playSegment(res, index, rate, onProgress) {
     const [from, to] = res.segments[index] || [0, Infinity];
@@ -148,7 +148,7 @@
   }
 
   // ---------- device voice ----------
-  const QUALITY = [/natural/i, /neural/i, /premium|enhanced/i, /^google/i, /samantha|daniel|karen|moira|serena|rishi|veena/i];
+    const QUALITY = [/natural/i, /neural/i, /premium|enhanced/i, /^google/i, /samantha|daniel|karen|moira|serena|rishi|veena/i];
   const ROBOTIC = /microsoft (david|zira|mark|hazel|george|ravi|heera)|espeak|desktop/i;
   function rank(v) {
     let s = 0;
@@ -159,7 +159,8 @@
     if (!v.localService) s += 5;
     return s;
   }
-  function deviceVoices() { return synth ? synth.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(b) - rank(a)) : []; }
+  const LANG_TAG = { 'English':'en', 'English (India)':'en-IN', Hindi:'hi', Kannada:'kn', Tamil:'ta', Telugu:'te', Malayalam:'ml', Marathi:'mr', Bengali:'bn', Spanish:'es', French:'fr' };
+  function deviceVoices() { const want=LANG_TAG[V.language]||'en';return synth ? synth.getVoices().filter(v => v.lang.toLowerCase().startsWith(want.toLowerCase()) && QUALITY.some(re=>re.test(v.name)) && !ROBOTIC.test(v.name)).sort((a, b) => rank(b) - rank(a)) : []; }
   function deviceVoice() { const vs = deviceVoices(), name = kind() === 'device' ? V.choice.slice(7) : ''; return vs.find(v => v.name === name) || vs[0] || null; }
   const sentences = text => (String(text).match(/[^.!?]+[.!?]*(\s+|$)/g) || [text]).map(s => s.trim()).filter(Boolean);
 
@@ -173,6 +174,7 @@
       const next = () => {
         if (stopped) return;
         if (i >= parts.length) { onProgress(1); V.current = null; return resolve(); }
+        if (!voice) { status(`No natural ${V.language} voice is available on this device. Configure the NeuraLearn natural voice service to hear narration.`); return resolve(); }
         const part = parts[i++], u = new SpeechSynthesisUtterance(part);
         if (voice) { u.voice = voice; u.lang = voice.lang; }
         u.rate = Math.max(0.6, Math.min(1.6, rate * 0.96)); u.pitch = 1;
@@ -190,7 +192,7 @@
   async function speak(text, { rate = 1, onProgress = () => {}, onWait = () => {} } = {}) {
     stop();
     if (V.choice === 'off') return;
-    const where = naturalOn() && V.byLine.get(`${naturalVoice()}|${V.style}|${norm(text)}`), chunk = where && V.chunks.get(where.key);
+    const where = naturalOn() && V.byLine.get(`${naturalVoice()}|${V.style}|${V.language}|${norm(text)}`), chunk = where && V.chunks.get(where.key);
     if (chunk && chunk.state !== 'failed') {
       if (chunk.state !== 'ready') onWait(true);
       let res = null;
@@ -207,10 +209,11 @@
 
   // ---------- voice menus ----------
   function setChoice(choice) {
-    V.choice = choice || 'natural:Kore'; pref('nl.voiceChoice', V.choice);
+    V.choice = choice || 'natural:Sulafat'; pref('nl.voiceChoice', V.choice);
     const t = $('voiceToggle'); if (t) t.checked = V.choice !== 'off';
     stop(); sync();
   }
+  function setLanguage(language) { V.language=language||'English';pref('nl.language',V.language);V.chunks.clear();V.byLine.clear();V.queue=[];stop();sync(); }
   function setStyle(style) { V.style = style; pref('nl.voiceStyle', style); sync(); }
   const option = (value, text) => Object.assign(document.createElement('option'), { value, textContent: text });
   function fillPick(sel) {
@@ -251,9 +254,12 @@
     else if (e.target.matches?.('select.voice-style')) setStyle(e.target.value);
     else if (e.target.id === 'voiceToggle') { if (!e.target.checked) setChoice('off'); else if (V.choice === 'off') setChoice(`natural:${V.voices[0].id}`); }
   });
+  const parentOrigin = new URLSearchParams(location.search).get('parentOrigin');
+  window.addEventListener('message',e=>{if(e.source!==parent||!parentOrigin||e.origin!==parentOrigin||e.data?.type!=='neuralelearn:language')return;setLanguage(String(e.data.language||'English').slice(0,60));});
+  const initialLanguage=new URLSearchParams(location.search).get('language');if(initialLanguage)setLanguage(initialLanguage);
   document.addEventListener('DOMContentLoaded', () => { sync(); $('voiceTest')?.addEventListener('click', sample); });
   window.Voice = {
-    speak, stop, pause, resume, prefetch, hasLine, setChoice, sync, bestDeviceVoice: deviceVoice,
+    speak, stop, pause, resume, prefetch, hasLine, setChoice, setLanguage, sync, bestDeviceVoice: deviceVoice,
     get choice() { return V.choice; }, get naturalReady() { return V.natural; },
   };
 })();

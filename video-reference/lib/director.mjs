@@ -487,10 +487,11 @@ Rules:
 - Never mention a number that is not already in that line. Never change a value, an index or an order.
 - At most 2 sentences and 40 words per line. Plain spoken English, no markdown, no lists.
 Return JSON only: {"lines": {"<id>": "<rewritten line>", ...}} with every id.`;
-export async function narrateLesson(lesson, modelCall) {
+export async function narrateLesson(lesson, modelCall, language = 'English') {
   const beats = lesson.scenes.flatMap(s => s.beats.map(b => ({ b, kind: s.kind })));
   const user = `Lesson: ${lesson.title}\nInput: ${JSON.stringify(lesson.visual)}\n\nLines (id | scene kind | line):\n${beats.map(({ b, kind }) => `${b.id} | ${kind} | ${b.say}`).join('\n')}`;
-  const raw = await modelCall(NARRATE_SYSTEM, user, true, 4000);
+  const localizedRules = NARRATE_SYSTEM.replace('- At most 2 sentences and 40 words per line. Plain spoken English, no markdown, no lists.', `- At most 2 sentences and 40 words per line. Plain spoken ${language}, no markdown, no lists.`) + `\nWrite every replacement line in ${language}; preserve numeric facts and identifiers.`;
+  const raw = await modelCall(localizedRules, user, true, 4000);
   const lines = parseModelJson(raw)?.lines || {};
   let replaced = 0, rejected = 0;
   for (const { b } of beats) {
@@ -516,7 +517,7 @@ function interruptFallback(run, k) {
   if (k + 1 < facts.length) beats.push(beat(`Next: ${facts[k + 1].fact}`, step(k + 1)));
   return [{ title: 'Replaying this moment', beats }];
 }
-export async function answerInterrupt({ algorithm, data, target, stepIndex, question, sceneTitle }, modelCall) {
+export async function answerInterrupt({ algorithm, data, target, stepIndex, question, sceneTitle, language = 'English' }, modelCall) {
   if (!ALGORITHMS[algorithm]) throw Object.assign(new Error('Unknown algorithm.'), { status: 400 });
   // Recompute the trace on the server; the client's copy is never trusted.
   const run = runAlgorithm(algorithm, data, target);
@@ -548,7 +549,7 @@ export async function answerInterrupt({ algorithm, data, target, stepIndex, ques
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const prompt = attempt === 0 ? user : `${user}\n\nYour previous answer was rejected for these reasons, fix them:\n- ${lastErrors.slice(0, 8).join('\n- ')}`;
-        const scenes = wrap(parseModelJson(await modelCall(ASK_SYSTEM, prompt, true, 3000)));
+        const scenes = wrap(parseModelJson(await modelCall(`${ASK_SYSTEM}\nWrite every scene title and spoken line in ${language}.`, prompt, true, 3000)));
         const errors = check(scenes);
         if (!errors.length) return { scenes, source: 'ai', stepIndex: k, attempts: attempt + 1 };
         lastErrors = errors;

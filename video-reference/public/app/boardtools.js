@@ -41,8 +41,10 @@
   // ---------- zoom and full screen ----------
   function setZoom(z) {
     $('zoomSel').value = String(z);
-    $('board').style.width = `${z * 100}%`;
-    $('boardWrap').classList.toggle('zoomed', z > 1);
+    const board=$('board'),wrap=$('boardWrap');
+    board.style.width = `${z * 100}%`;board.style.maxWidth='none';board.style.marginInline=z<1?'auto':'0';
+    wrap.classList.toggle('zoomed', z > 1);
+    requestAnimationFrame(()=>{wrap.scrollLeft=0;wrap.scrollTop=0;});
   }
   $('zoomSel').addEventListener('change', e => setZoom(Number(e.target.value)));
   $('zoomBtn').addEventListener('click', () => { const steps = [0.75, 1, 1.25, 1.5], i = steps.indexOf(Number($('zoomSel').value)); setZoom(steps[(i + 1) % steps.length]); });

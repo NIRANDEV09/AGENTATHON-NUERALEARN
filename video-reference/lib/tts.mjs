@@ -109,11 +109,12 @@ export function segment(wav, lines) {
 export async function synthesize(lines, config = ttsConfig(), fetchImpl = fetch, options = {}) {
   const voice = VOICES.some(v => v.id === options.voice) ? options.voice : config.voice;
   const style = STYLES[options.style] ? options.style : 'professor';
+  const language = String(options.language || 'English').slice(0, 60);
   const list = (Array.isArray(lines) ? lines : [lines]).map(l => String(l ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!list.length) throw Object.assign(new Error('Text is required.'), { status: 400 });
   if (list.length > MAX_LINES || list.some(l => l.length > MAX_LINE) || list.join(' ').length > MAX_TOTAL) throw Object.assign(new Error(`Too much text for one request (up to ${MAX_LINES} lines of ${MAX_LINE} characters).`), { status: 413 });
   if (!config.enabled) throw Object.assign(new Error('Natural voice needs LLM_PROVIDER=gemini and a GEMINI_API_KEY.'), { status: 503 });
-  const key = `${config.model}|${voice}|${style}|${list.join('\n')}`;
+  const key = `${config.model}|${voice}|${style}|${language}|${list.join('\n')}`;
   if (cache.has(key)) { const hit = cache.get(key); cache.delete(key); cache.set(key, hit); return hit; }
   const job = (async () => {
     let r;
@@ -123,7 +124,7 @@ export async function synthesize(lines, config = ttsConfig(), fetchImpl = fetch,
         headers: { 'content-type': 'application/json', 'x-goog-api-key': config.key },
         body: JSON.stringify({
           model: config.model,
-          input: [{ type: 'user_input', content: [{ type: 'text', text: list.join('\n\n'), annotations: [{ type: 'speech_metadata', style: STYLES[style].text }] }] }],
+          input: [{ type: 'user_input', content: [{ type: 'text', text: list.join('\n\n'), annotations: [{ type: 'speech_metadata', style: `${STYLES[style].text} Speak naturally and fluently in ${language}, with native pronunciation and a warm human cadence. Keep technical terms and code identifiers accurate.` }] }] }],
           response_format: { type: 'audio', mime_type: 'audio/wav' },
           generation_config: { speech_config: [{ voice }] },
         }),
