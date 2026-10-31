@@ -1,8 +1,14 @@
 const http = require('http');
 const { spawn } = require('node:child_process');
+let screenOverlayProcess = null;
+let screenOverlayScriptSignature = '';
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const { randomUUID } = require('node:crypto');
+const readScreenSessions = new Map();
+const readScreenActions = [];
+let readScreenHubLastSeen = 0;
 // Minimal .env loader (no dependency required). Existing process environment wins.
 try {
   const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
@@ -31,17 +37,6 @@ function send(res, status, data, type='application/json; charset=utf-8') {
 function readBody(req) { return new Promise((resolve,reject)=>{let s=''; req.on('data',c=>{s+=c; if(s.length>4e7) req.destroy();}); req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch(e){reject(e);}}); req.on('error',reject);}); }
 const { matchDeterministicTopic } = require('./lib/deterministic-lessons.js');
 const { handleDocsTopics } = require('./lib/docs-api.js');
-const {
-  TUTOR_SYSTEM_PROMPT,
-  SCAFFOLDING_LEVELS,
-  getSession,
-  saveSession,
-  updateScaffoldingState,
-  buildCanvasContext,
-  validateOperations,
-  buildTutorPrompt,
-  matchDeterministicTutorResponse
-} = require('./lib/ai-tutor-service.js');
 
 function buildGeminiUserParts(text, attachment) {
   const parts = [];
@@ -243,188 +238,85 @@ const interruptRules = `You are NeuraLearn's live whiteboard lesson editor. The 
   ],
   "strategy": "append|clarify|replace"
 }
-Usually return 1-2 segments and 2-5 drawing actions per segment. Keep the active lesson context and add only new board marks to clarify the student's question; do not wipe existing marks unless explicitly asked to redraw. JSON only, no markdown.`;
+Usually return 1-2 segments and 3-6 drawing actions per segment. Every segment MUST contain at least two actual visual shapes or connectors (draw_path with a non-empty d, draw_rect, draw_circle, draw_arrow, or draw_line), plus short draw_text/draw_formula labels that make the diagram understandable. Do not answer with narration or text labels alone: build a small, specific diagram, comparison, worked example, or cause-and-effect sketch that directly answers the student's question. Use correct geometry fields: rectangles use x/y/width/height; circles use cx/cy/r; arrows use x1/y1/x2/y2; paths use d. Every interruption starts on a fresh board page below the existing page. Draw a self-contained clarification on that new page; never place marks over, redraw, or alter earlier board pages. JSON only, no markdown.`;
 
 async function route(req,res) {
   const url = new URL(req.url, `http://${req.headers.host||'localhost'}`);
   if (req.method==='OPTIONS') { res.writeHead(204, {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'}); return res.end(); }
-  if (url.pathname==='/api/health') return send(res,200,{ok:true,provider:LLM_PROVIDER,model:ACTIVE_MODEL,apiKeyConfigured:!!ACTIVE_KEY,chatProvider:'groq',chatModel:GROQ_CHAT_MODEL,chatApiKeyConfigured:!!GROQ_API_KEY});
-  if (req.method==='POST' && url.pathname==='/api/docs/topics') return handleDocsTopics(req, res, readBody, send, askLLM);
-
-  // -------------------------------------------------------------------------
-  // Multimodal AI Tutor Endpoints (Interactive Whiteboard & Socratic Guidance)
-  // -------------------------------------------------------------------------
-  if (req.method==='GET' && url.pathname==='/api/tutor/session') {
-    const id = url.searchParams.get('id') || 'default-session';
-    const s = getSession(id);
-    return send(res, 200, s);
-  }
-
-  if (req.method==='POST' && url.pathname==='/api/tutor/session') {
+  if (url.pathname==='/api/tts' && req.method==='POST') {
     try {
-      const b = await readBody(req);
-      if (!b.sessionId) b.sessionId = 'default-session';
-      saveSession(b);
-      return send(res, 200, { ok: true, savedAt: Date.now() });
-    } catch(e) {
-      return send(res, 500, { error: e.message });
-    }
+      const body=await readBody(req), upstream=await fetch(`http://127.0.0.1:${Number(process.env.VIDEO_PORT)||3005}/api/tts`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+      const audio=Buffer.from(await upstream.arrayBuffer());res.writeHead(upstream.status,{'Content-Type':upstream.headers.get('content-type')||'application/json; charset=utf-8','Cache-Control':upstream.headers.get('cache-control')||'no-store',...(upstream.headers.get('x-segments')?{'X-Segments':upstream.headers.get('x-segments')}:{})});return res.end(audio);
+    } catch(e){return send(res,503,{error:'Human voice service is unavailable. Start the Video Explainer server and check its Gemini voice setup.'});}
   }
-
-  if (req.method==='POST' && url.pathname==='/api/tutor/vision') {
-    try {
-      const b = await readBody(req);
-      if (!b.canvasSnapshot) {
-        return send(res, 400, { error: 'Canvas snapshot is required for vision evaluation.' });
-      }
-
-      const cleanData = String(b.canvasSnapshot).replace(/^data:image\/[^;]+;base64,/, '').trim();
-      const visionPrompt = `You are NeuraLearn's vision-equipped multimodal AI tutor.
-Inspect the student's whiteboard drawing and handwritten equations in this image.
-1. Transcribe any equations, numbers, handwriting, or diagrams (such as Free Body Diagrams, circuits, geometry, graphs) visible on the board.
-2. Verify mathematical, scientific, and algebraic correctness.
-3. If handwriting or diagram is ambiguous or uncertain, report confidence as "medium" or "low" and politely ask the student to clarify rather than falsely marking an answer wrong.
-4. If there is a mistake, explain the exact misconception constructively and suggest the correct formula or vector direction.
-5. Provide structured whiteboard operations to highlight or annotate the student's work.
-
-Return ONLY valid JSON with this shape:
-{
-  "analysis": "detailed transcription and inspection of student's work",
-  "isCorrect": true,
-  "confidence": "high",
-  "feedback": "encouraging, constructive explanation directly to the student",
-  "detectedEquations": ["..."],
-  "operations": [
-    {
-      "operation": "highlight",
-      "id": "student_obj_id",
-      "color": "#bbf7d0"
-    }
-  ]
-}`;
-
-      let result;
-      if (API_KEY) {
-        result = await askGemini(TUTOR_SYSTEM_PROMPT, visionPrompt, 0.2, 2048, {
-          attachment: { data: cleanData, mimeType: 'image/png' },
-          thinkingLevel: 'low',
-          timeoutMs: 35000
-        });
-      } else {
-        result = {
-          analysis: "Inspected student canvas diagram.",
-          isCorrect: true,
-          confidence: "medium",
-          feedback: "Your drawing appears to be on the right track! Make sure all force vectors have clear arrowheads and labels.",
-          operations: []
-        };
-      }
-
-      return send(res, 200, {
-        ...result,
-        operations: validateOperations(result.operations)
-      });
-    } catch (e) {
-      return send(res, e.status || 500, { error: e.message || 'Vision evaluation failed.' });
-    }
+  if (url.pathname==='/api/voice-status' && req.method==='GET') {
+    try{const r=await fetch(`http://127.0.0.1:${Number(process.env.VIDEO_PORT)||3005}/api/health`,{signal:AbortSignal.timeout(3000)});const h=await r.json();return send(res,200,{available:!!h.voice,voices:h.voices||[],styles:h.styles||[]});}catch{return send(res,200,{available:false,reason:'Video voice service is not running.'});}
   }
-
-  if (req.method==='POST' && url.pathname==='/api/tutor/chat') {
-    try {
-      const b = await readBody(req);
-      const studentMsg = String(b.message || b.concept || '').trim();
-      if (!studentMsg && !b.canvasSnapshot) {
-        return send(res, 400, { error: 'Please enter a question or drawing.' });
-      }
-
-      const sessionId = b.sessionId || 'default-session';
-      const session = getSession(sessionId);
-      const canvasObjects = Array.isArray(b.canvasState) ? b.canvasState : (session.canvasObjects || []);
-      const currentLevel = b.scaffoldingLevel !== undefined ? Number(b.scaffoldingLevel) : (session.scaffoldingLevel || 0);
-      const subject = b.subject || session.subject || 'Physics';
-      const topic = b.topic || session.topic || 'General Science';
-      const isInterruption = !!b.isInterruption;
-
-      // 1. Check for deterministic match (Test 1, 2, 3, 4, 5, 6)
-      const deterministic = matchDeterministicTutorResponse(studentMsg, canvasObjects, currentLevel, session);
-      if (deterministic) {
-        session.scaffoldingLevel = deterministic.scaffoldingLevel !== undefined ? deterministic.scaffoldingLevel : currentLevel;
-        session.messages.push({ role: 'user', content: studentMsg, timestamp: Date.now() });
-        session.messages.push({ role: 'assistant', content: deterministic.tutorMessage, timestamp: Date.now() });
-        saveSession(session);
-        return send(res, 200, {
-          ...deterministic,
-          sessionId,
-          provider: 'deterministic'
-        });
-      }
-
-      // 2. Prepare multimodal / vision attachment if canvas snapshot is provided
-      let visionAttachment = null;
-      if (b.canvasSnapshot && typeof b.canvasSnapshot === 'string') {
-        const cleanData = b.canvasSnapshot.replace(/^data:image\/[^;]+;base64,/, '').trim();
-        visionAttachment = {
-          data: cleanData,
-          mimeType: 'image/png'
-        };
-      } else if (b.attachment) {
-        visionAttachment = b.attachment;
-      }
-
-      // 3. Build context-aware Socratic prompt
-      const prompt = buildTutorPrompt({
-        studentMessage: studentMsg,
-        conversationHistory: Array.isArray(b.messages) ? b.messages : session.messages,
-        canvasObjects,
-        scaffoldingLevel: currentLevel,
-        subject,
-        topic,
-        isInterruption,
-        studentDrawingContext: visionAttachment ? 'Student submitted their active whiteboard drawing for your review.' : ''
-      });
-
-      // 4. Call LLM (Gemini or Groq)
-      let rawResult;
-      try {
-        rawResult = await askLLM(TUTOR_SYSTEM_PROMPT, prompt, 0.25, 4096, {
-          attachment: visionAttachment,
-          thinkingLevel: 'low',
-          timeoutMs: 40000
-        });
-      } catch (llmErr) {
-        console.warn('LLM call failed, falling back to Socratic guidance:', llmErr.message);
-        rawResult = {
-          tutorMessage: `Let's consider the fundamental principle: what physical law or mathematical relationship connects your known quantities?`,
-          spokenNarration: `Let's consider the fundamental principle: what relationship connects the known quantities?`,
-          scaffoldingLevel: Math.min(4, currentLevel + 1),
-          guidingQuestion: "What principle or formula applies here?",
-          operations: []
-        };
-      }
-
-      // 5. Validate operations
-      const validOps = validateOperations(rawResult.operations);
-
-      // 6. Persist to session
-      session.scaffoldingLevel = rawResult.scaffoldingLevel !== undefined ? rawResult.scaffoldingLevel : currentLevel;
-      session.messages.push({ role: 'user', content: studentMsg, timestamp: Date.now() });
-      session.messages.push({ role: 'assistant', content: rawResult.tutorMessage, timestamp: Date.now() });
-      saveSession(session);
-
-      return send(res, 200, {
-        tutorMessage: rawResult.tutorMessage || 'I am ready to help you with the next step.',
-        spokenNarration: rawResult.spokenNarration || rawResult.tutorMessage,
-        scaffoldingLevel: session.scaffoldingLevel,
-        detectedMisconception: rawResult.detectedMisconception || null,
-        guidingQuestion: rawResult.guidingQuestion || null,
-        operations: validOps,
-        checkpoint: rawResult.checkpoint || null,
-        sessionId,
-        provider: rawResult._provider || LLM_PROVIDER
-      });
-    } catch (e) {
-      return send(res, e.status || 500, { error: e.message || 'Tutor response failed.' });
+  if (req.method==='POST' && url.pathname==='/api/docs/topics') return handleDocsTopics(req,res,readBody,send,askLLM);
+  if (url.pathname==='/api/health') return send(res,200,{ok:true,build:'neuralelearn-pdf-tutor',features:{pdfTutor:true},provider:LLM_PROVIDER,model:ACTIVE_MODEL,apiKeyConfigured:!!ACTIVE_KEY,chatProvider:'groq',chatModel:GROQ_CHAT_MODEL,chatApiKeyConfigured:!!GROQ_API_KEY});
+  if (req.method==='POST' && url.pathname==='/api/screen-overlay/start') {
+    const origin=req.headers.origin||'';
+    if (origin && !/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return send(res,403,{error:'The desktop viewer can only be opened from NeuraLearn on this computer.'});
+    if (process.platform !== 'win32') return send(res,501,{error:'The desktop overlay is available on Windows only.'});
+    const script=path.join(__dirname,'screen-overlay.ps1');
+    if (!fs.existsSync(script)) return send(res,404,{error:'The desktop overlay script is missing.'});
+    const scriptStat=fs.statSync(script);
+    const scriptSignature=`${scriptStat.mtimeMs}:${scriptStat.size}`;
+    let restarted=false;
+    if (screenOverlayProcess && screenOverlayProcess.exitCode===null) {
+      if (screenOverlayScriptSignature===scriptSignature) return send(res,200,{ok:true,alreadyRunning:true});
+      // A native WinForms window cannot hot-reload its controls. Replace it when
+      // the on-disk viewer script changed so the learner sees the new UI.
+      try { screenOverlayProcess.kill(); } catch {}
+      screenOverlayProcess=null;
+      restarted=true;
     }
+    try {
+      const child=spawn('powershell.exe',['-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',script,'-Port',String(PORT)],{cwd:__dirname,windowsHide:false,stdio:'ignore'});
+      screenOverlayProcess=child;
+      screenOverlayScriptSignature=scriptSignature;
+      child.once('error',()=>{if(screenOverlayProcess===child)screenOverlayProcess=null});
+      child.once('exit',()=>{if(screenOverlayProcess===child)screenOverlayProcess=null});
+      return send(res,200,{ok:true,restarted});
+    } catch(e) { screenOverlayProcess=null; return send(res,500,{error:'Could not open the desktop overlay: '+e.message}); }
+  }
+  if (req.method==='POST' && url.pathname==='/api/read-screen') {
+    try {
+      const b=await readBody(req), image=String(b.image||'');
+      if(!image.startsWith('data:image/jpeg;base64,'))return send(res,400,{error:'A JPEG screen frame is required.'});
+      if(image.length>12000000)return send(res,413,{error:'That screen frame is too large. Try sharing a smaller window.'});
+      const question=String(b.question||'').trim().slice(0,500);
+      const prompt=`A learner shared a screen image and may have drawn a red mark around an area. Explain the marked region first when marks are present; use nearby screen content to explain its context. If there is no clear mark, briefly describe the visible screen and ask what the learner wants to focus on. User question: ${question||'Explain the marked area in the context of the full screen.'}\nReturn only a JSON object with exactly these string fields: {"explanation":"clear, helpful explanation in plain language","context":"one short sentence describing how the marked item relates to the surrounding screen"}. Do not guess text that is unreadable; say when the image is unclear.`;
+      const result=await askGemini('You are NeuraLearn Read Screen, a patient visual tutor. Inspect the attached screenshot carefully and explain what the learner marked. Be accurate, use only what is visible, and distinguish uncertainty. Return valid JSON only.',prompt,0.2,1400,{timeoutMs:45000,attachment:{data:image,mimeType:'image/jpeg'}});
+      const sessionId=randomUUID();
+      const session={question,explanation:String(result.explanation||''),context:String(result.context||''),createdAt:Date.now()};
+      readScreenSessions.set(sessionId,session);
+      for(const [key,value] of readScreenSessions) if(Date.now()-value.createdAt>5*60*1000) readScreenSessions.delete(key);
+      return send(res,200,{...session,sessionId});
+    } catch(e) { return send(res,e.status||500,{error:e.message||'Could not explain the shared screen.'}); }
+  }
+  if(req.method==='GET' && url.pathname==='/api/read-screen/next') {
+    readScreenHubLastSeen=Date.now();
+    return send(res,200,{action:readScreenActions.shift()||null});
+  }
+  if(req.method==='POST' && url.pathname==='/api/read-screen/choose') {
+    let body;try{body=await readBody(req)}catch{return send(res,400,{error:'Invalid screen selection.'})}
+    const mode=String(body.mode||''),sessionId=String(body.sessionId||'');
+    if(!['chat','video','canvas'].includes(mode))return send(res,400,{error:'Choose Text Chat, Video Explainer, or Canvas Tutor.'});
+    if(!/^[0-9a-f-]{36}$/i.test(sessionId))return send(res,400,{error:'That screen selection is invalid. Mark it again.'});
+    if(Date.now()-readScreenHubLastSeen>15000)return send(res,503,{error:'NeuraLearn is not connected. Open or refresh the local NeuraLearn page, then try again.'});
+    const session=readScreenSessions.get(sessionId);readScreenSessions.delete(sessionId);
+    if(!session||Date.now()-session.createdAt>5*60*1000)return send(res,404,{error:'That screen selection expired. Mark the area again.'});
+    if(readScreenActions.length>=5)readScreenActions.shift();
+    readScreenActions.push({mode,session});
+    return send(res,200,{ok:true,mode});
+  }
+  const readScreenSessionMatch=url.pathname.match(/^\/api\/read-screen\/session\/([0-9a-f-]{36})$/i);
+  if (req.method==='GET' && readScreenSessionMatch) {
+    const sessionId=readScreenSessionMatch[1],session=readScreenSessions.get(sessionId);
+    readScreenSessions.delete(sessionId);
+    if(!session||Date.now()-session.createdAt>5*60*1000)return send(res,404,{error:'This screen selection expired. Please mark it again.'});
+    return send(res,200,session);
   }
   if (req.method==='POST' && url.pathname==='/api/chat') {
     if(!GROQ_API_KEY)return send(res,503,{error:'GROQ_API_KEY is missing. Add it to .env and restart the local server.'});
@@ -432,7 +324,8 @@ Return ONLY valid JSON with this shape:
     const incoming=Array.isArray(body.messages)?body.messages.slice(-24):[];
     const messages=[];let total=0;for(const m of incoming){if(!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string')continue;const content=m.content.slice(0,6000);total+=content.length;if(total>30000)return send(res,413,{error:'This conversation is too long. Start a new chat to continue.'});messages.push({role:m.role,content})}
     if(!messages.length||messages[messages.length-1].role!=='user')return send(res,400,{error:'Send a question to start the chat.'});
-    const system='You are NeuraLearn, a clear, friendly and accurate learning tutor. Answer the actual question directly. Explain concepts step by step when useful, use concise examples, and format longer answers with short headings and bullets. For code, give runnable code and explain important parts. Check calculations and factual claims; if uncertain, say so. Avoid filler and do not claim to have browsed or executed code.';
+    const language=String(body.language||'English').slice(0,60);
+    const system=`You are NeuraLearn, a clear, friendly and accurate learning tutor. Answer the actual question directly. Explain concepts step by step when useful, use concise examples, and format longer answers with short headings and bullets. For code, give runnable code and explain important parts. Check calculations and factual claims; if uncertain, say so. Avoid filler and do not claim to have browsed or executed code. Write the complete answer in ${language}. Keep technical names, code, and standard API identifiers unchanged where translation would make them inaccurate.`;
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),90000);const onClose=()=>{if(!res.writableEnded)controller.abort()};res.on('close',onClose);
     try{const upstream=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',signal:controller.signal,headers:{'Authorization':`Bearer ${GROQ_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:GROQ_CHAT_MODEL,messages:[{role:'system',content:system},...messages],temperature:0.25,max_completion_tokens:2400,reasoning_effort:'low',stream:true})});
       if(!upstream.ok){const raw=await upstream.text();return send(res,upstream.status,{error:`Groq chat ${upstream.status}: ${raw.slice(0,420)}`})}
@@ -447,7 +340,7 @@ Return ONLY valid JSON with this shape:
       const b=await readBody(req);if(!String(b.concept||'').trim())return send(res,400,{error:'Enter a concept first.'});
       const concept=String(b.concept).slice(0,5000);
       const hasAttachment = !!(b.attachment && b.attachment.data);
-      const deterministic = !hasAttachment ? await matchDeterministicTopic(concept, hasAttachment) : null;
+      const deterministic = !hasAttachment && (!b.language || /^English/i.test(String(b.language))) ? await matchDeterministicTopic(concept, hasAttachment) : null;
       if (deterministic) {
         res.writeHead(200,{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});
         const first = { ...deterministic, segments: deterministic.segments.slice(0,1), provider:'deterministic', model:'tracers', latencyMs:15, partial:true };
@@ -463,7 +356,7 @@ Return ONLY valid JSON with this shape:
       const prompt = hasAttachment
         ? `Question / Request: ${concept}\nExamine the attached image or document closely. Extract the specific given values, bodies, and setup from the image, and start drawing the first scene now.`
         : `Concept/request: ${concept}\nLevel: ${level}\nLanguage: ${language}\nPreferences: ${preferences}\nCreate the first drawable teaching moment now.`;
-      return await streamGeminiResponse(system,prompt,res,{timeoutMs:35000,maxOutputTokens:1400,attachment:b.attachment});
+      return await streamGeminiResponse(`${system}\nTeach, write, label, and narrate this lesson entirely in ${language}. Keep standard technical terms accurate.`,prompt,res,{timeoutMs:35000,maxOutputTokens:1400,attachment:b.attachment});
     }catch(e){return send(res,e.status||500,{error:e.message||'First-scene stream failed.'});}
   }
   if (req.method==='POST' && url.pathname==='/api/lesson/first') {
@@ -471,7 +364,7 @@ Return ONLY valid JSON with this shape:
       const b=await readBody(req); if(!String(b.concept||'').trim()) return send(res,400,{error:'Enter a concept first.'});
       const concept=String(b.concept).slice(0,5000);
       const hasAttachment = !!(b.attachment && b.attachment.data);
-      const deterministic = !hasAttachment ? await matchDeterministicTopic(concept, hasAttachment) : null;
+      const deterministic = !hasAttachment && (!b.language || /^English/i.test(String(b.language))) ? await matchDeterministicTopic(concept, hasAttachment) : null;
       if (deterministic) {
         return send(res,200,{...deterministic,segments:deterministic.segments.slice(0,1),provider:'deterministic',model:'tracers',latencyMs:15,partial:true});
       }
@@ -482,7 +375,7 @@ Return ONLY valid JSON with this shape:
       const prompt = hasAttachment
         ? `Question / Request: ${concept}\nExamine the attached image or document closely. Extract the specific given values, bodies, and setup from the image, and start drawing the first scene now.`
         : `Concept/request: ${concept}\nLevel: ${level}\nLanguage: ${language}\nPreferences: ${preferences}\nCreate the first drawable teaching moment now.`;
-      const first=await askLLM(fastSystem,prompt,0.1,1400,{thinkingLevel:'low',reasoningEffort:'low',timeoutMs:25000,attachment:b.attachment});
+      const first=await askLLM(`${fastSystem}\nTeach, write, label, and narrate this lesson entirely in ${language}. Keep standard technical terms accurate.`,prompt,0.1,1400,{thinkingLevel:'low',reasoningEffort:'low',timeoutMs:25000,attachment:b.attachment});
       if(!Array.isArray(first.segments)||!first.segments.length) throw Object.assign(new Error('Could not create the first teaching scene.'),{status:502});
       return send(res,200,{...first,segments:first.segments.slice(0,1),provider:first._provider||LLM_PROVIDER,model:first._model||ACTIVE_MODEL,latencyMs:first._latencyMs,partial:true});
     } catch(e){return send(res,e.status||500,{error:e.message||'First scene generation failed.'});}
@@ -492,7 +385,7 @@ Return ONLY valid JSON with this shape:
       const b=await readBody(req); if(!String(b.concept||'').trim()) return send(res,400,{error:'Missing lesson concept.'});
       const concept=String(b.concept).slice(0,5000);
       const hasAttachment = !!(b.attachment && b.attachment.data);
-      const deterministic = !hasAttachment ? await matchDeterministicTopic(concept, hasAttachment) : null;
+      const deterministic = !hasAttachment && (!b.language || /^English/i.test(String(b.language))) ? await matchDeterministicTopic(concept, hasAttachment) : null;
       if (deterministic) {
         return send(res,200,{segments:deterministic.segments.slice(1),checkpoint:deterministic.checkpoint,provider:'deterministic',model:'tracers',latencyMs:10,partial:false});
       }
@@ -508,7 +401,7 @@ Return ONLY valid JSON with this shape:
    - formula: derived values at x: 500, y: 668, fontSize: 16, color: '#1c7430'
 5. LAYOUT: Separate lines vertically by at least 35px in Y: 480-685. Do not overlap coordinates. Return JSON with {"segments":[...],"checkpoint":{...}}. JSON only.`
         : `Learner request: ${concept}\nLevel: ${String(b.level||'university beginner').slice(0,100)}\nLanguage: ${String(b.language||'English').slice(0,60)}\nPreferences: ${String(b.preferences||'Teach intuitively with animated whiteboard drawings.').slice(0,1000)}\n${opening?`The first scene already being taught is: ${opening}`:'The opening scene is already being taught.'}\nActions already on the board: ${JSON.stringify(Array.isArray(b.firstActions)?b.firstActions:b.firstVisuals||[]).slice(0,2500)}\nGenerate ONLY the remaining connected lesson segments, not a duplicate opening. Build a progressive whiteboard composition in viewBox 0 0 960 700. Add new elements to vacant space or highlight existing ones. Return JSON with {"segments":[...],"checkpoint":{"question":"...","options":["...","...","...","..."],"answerIndex":0,"explanation":"..."}}. Use 4-8 remaining segments. Give each segment 3-6 purposeful actions. JSON only.`;
-      const system=`You are NeuraLearn, a precise visual professor creating an animated SVG whiteboard lesson. ${lessonSchema}`;
+      const system=`You are NeuraLearn, a precise visual professor creating an animated SVG whiteboard lesson in ${String(b.language||'English').slice(0,60)}. Write all explanation, labels, and narration in that language while keeping standard technical notation accurate. ${lessonSchema}`;
       const rest=await askLLM(system,prompt,0.2,8192,{thinkingLevel:'low',reasoningEffort:'low',timeoutMs:60000,attachment:b.attachment});
       if(!Array.isArray(rest.segments)) throw Object.assign(new Error('The remaining lesson had no usable segments.'),{status:502});
       return send(res,200,{segments:rest.segments,checkpoint:rest.checkpoint||null,provider:rest._provider||LLM_PROVIDER,model:rest._model||ACTIVE_MODEL,latencyMs:rest._latencyMs,partial:false});
@@ -517,30 +410,29 @@ Return ONLY valid JSON with this shape:
   if (req.method==='POST' && url.pathname==='/api/lesson') {
     try {
       const b=await readBody(req); if(!String(b.concept||'').trim()) return send(res,400,{error:'Enter a concept first.'});
-      const concept=String(b.concept).slice(0,11000);
+      const concept=String(b.concept).slice(0,5000);
       const hasAttachment = !!(b.attachment && b.attachment.data);
-      const deterministic = !hasAttachment ? await matchDeterministicTopic(concept, hasAttachment) : null;
+      const deterministic = !hasAttachment && (!b.language || /^English/i.test(String(b.language))) ? await matchDeterministicTopic(concept, hasAttachment) : null;
       if (deterministic) {
         return send(res,200,{...deterministic,provider:'deterministic',model:'tracers',latencyMs:15});
       }
       const prompt = hasAttachment
-        ? `Carefully inspect the ENTIRE attached image/document and teach the actual material shown: ${concept}
-1. Identify the image type and purpose (concept explanation, textbook page, chart, labelled diagram, worked example, or question). Do not assume every upload is a mechanics problem.
-2. Read all legible headings, paragraphs, labels, captions, symbols, equations, values, units, legends, axes, tables, annotations and answer options. Preserve exact wording and values where relevant; flag anything unreadable instead of guessing.
-3. Explain the central concept and the role of each important component. For diagrams/charts, describe what each part represents and how arrows, labels, stages, variables or data relate. For processes, explain the sequence and cause/effect relationships.
-4. Build a coherent step-by-step lesson grounded in the uploaded material. Define necessary terms, connect the details to the main idea, and add a simple example only when it clarifies the source. Clearly distinguish source facts from helpful explanation.
-5. If the image contains a specific numerical question, solve that exact question, show the derivation, check units and arithmetic, and evaluate any visible answer options. Do not invent missing givens.
-6. Use concept-specific whiteboard diagrams and annotations that correspond to the uploaded image. Do not replace the source with a generic textbook illustration.
-7. LAYOUT: Keep diagram elements in Y: 60-450, and equations/explanations in Y: 480-685 with distinct non-overlapping coordinates.`
+        ? `Carefully inspect the attached image or document question: ${concept}
+1. Transcribe the exact question, all given values, masses, angles, applied forces, and any multiple-choice options (A), (B), (C), (D) shown in the image.
+2. Draw the exact physical setup and Free Body Diagrams with clearly labeled force vectors.
+3. Formulate Newton's second law for each body along its direction of motion.
+4. FULL SOLUTION: Solve for ALL variables asked in the question (e.g. if the question asks for acceleration AND tension, calculate both 'a' and 'T' step-by-step with complete mathematical derivation).
+5. OPTION EVALUATION & SOLUTION CARD: Explicitly match the derived solution against the question's options (A, B, C, D) and conclude the lesson with a prominent highlighted Solution Box stating '✓ Correct Answer: Option (X)' with the exact matching values.
+6. LAYOUT: Keep diagram elements in Y: 60-450, and equations in Y: 480-685 with distinct non-overlapping coordinates.`
         : `Learner request: ${concept}\nLevel: ${String(b.level||'university beginner').slice(0,100)}\nLanguage: ${String(b.language||'English').slice(0,60)}\nPreferences: ${String(b.preferences||'Teach intuitively, with concrete examples and animated whiteboard SVG drawings.').slice(0,1000)}\nGenerate the lesson now.`;
-      const lesson=await askLLM(lessonRules,prompt,0.25,8192,{thinkingLevel:'low',reasoningEffort:'low',attachment:b.attachment}); if(!Array.isArray(lesson.segments)||!lesson.segments.length) throw Object.assign(new Error('Lesson had no usable segments.'),{status:502});
+      const language=String(b.language||'English').slice(0,60), lesson=await askLLM(`${lessonRules}\nWrite all learner-facing content and narration in ${language}. Preserve standard technical terms and symbols.`,prompt,0.25,8192,{thinkingLevel:'low',reasoningEffort:'low',attachment:b.attachment}); if(!Array.isArray(lesson.segments)||!lesson.segments.length) throw Object.assign(new Error('Lesson had no usable segments.'),{status:502});
       return send(res,200,{...lesson,provider:lesson._provider||LLM_PROVIDER,model:lesson._model||ACTIVE_MODEL,latencyMs:lesson._latencyMs});
     } catch(e){ return send(res,e.status||500,{error:e.message||'Lesson generation failed.'}); }
   }
   if (req.method==='POST' && url.pathname==='/api/interrupt') {
     try {
       const b=await readBody(req); if(!String(b.command||'').trim()) return send(res,400,{error:'Say or type what you want changed.'});
-      const context=`Original learner request: ${String(b.concept||'').slice(0,2000)}\nCurrent lesson title: ${String(b.title||'').slice(0,200)}\nRecently explained: ${String(b.recentNarration||'').slice(0,1500)}\nCurrent board marks (avoid repeating these): ${JSON.stringify(Array.isArray(b.currentVisuals)?b.currentVisuals:[]).slice(0,4000)}\nStudent command: ${String(b.command).slice(0,2000)}\nReturn a small, fast patch, usually 1-3 segments with whiteboard drawing actions, answering the student's question.`;
+      const context=`Response language: ${String(b.language||'English').slice(0,60)}. Answer and narrate in this language.\nOriginal learner request: ${String(b.concept||'').slice(0,2000)}\nCurrent lesson title: ${String(b.title||'').slice(0,200)}\nCurrent lesson section: ${String(b.currentHeading||'').slice(0,300)}\nRecently explained: ${String(b.recentNarration||'').slice(0,1500)}\nUpcoming lesson sections: ${JSON.stringify(Array.isArray(b.upcomingLesson)?b.upcomingLesson:[]).slice(0,2500)}\nCurrent board marks (avoid repeating these): ${JSON.stringify(Array.isArray(b.currentVisuals)?b.currentVisuals:[]).slice(0,4000)}\nStudent command: ${String(b.command).slice(0,2000)}\nAnswer the command directly with a specific new diagram and spoken explanation. Return a small, fast patch, usually 1-3 segments with whiteboard drawing actions.`;
       const patch=await askLLM(interruptRules,context,0.2,2400,{thinkingLevel:'low',reasoningEffort:'low',timeoutMs:30000});
       if(!Array.isArray(patch.segments)||!patch.segments.length)throw Object.assign(new Error('Gemini returned a patch without any visual explanation. Please retry.'),{status:502});
       return send(res,200,patch);
@@ -550,4 +442,5 @@ Return ONLY valid JSON with this shape:
   const full = path.join(ROOT,file); if(!full.startsWith(ROOT)) return send(res,403,{error:'Forbidden'});
   fs.readFile(full,(err,buf)=>{ if(err) return send(res,404,'Not found','text/plain; charset=utf-8'); const ext=path.extname(full); const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'}; send(res,200,buf.toString(),types[ext]||'application/octet-stream'); });
 }
-http.createServer((req,res)=>route(req,res).catch(e=>send(res,500,{error:e.message||'Server error'}))).listen(PORT,()=>{console.log(`NeuraLearn running at http://localhost:${PORT} (provider: ${LLM_PROVIDER}, model: ${ACTIVE_MODEL})`);if(process.env.NEURA_VIDEO_SERVER!=='0'){const child=spawn(process.execPath,[path.join(__dirname,'video-reference','launch.cjs')],{cwd:path.join(__dirname,'video-reference'),stdio:'ignore',windowsHide:true});child.on('error',e=>console.error('Video reference server failed to start:',e.message));}});
+http.createServer((req,res)=>route(req,res).catch(e=>send(res,500,{error:e.message||'Server error'}))).listen(PORT,'127.0.0.1',()=>{console.log(`NeuraLearn running at http://localhost:${PORT} (provider: ${LLM_PROVIDER}, model: ${ACTIVE_MODEL})`);if(process.env.NEURA_VIDEO_SERVER!=='0'){const child=spawn(process.execPath,[path.join(__dirname,'video-reference','launch.cjs')],{cwd:path.join(__dirname,'video-reference'),stdio:'ignore',windowsHide:true});child.on('error',e=>console.error('Video reference server failed to start:',e.message));}});
+
