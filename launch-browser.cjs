@@ -52,7 +52,7 @@ async function isNeuraLearn(portNumber) {
     const response = await fetch(`${base(portNumber)}api/health`, { signal: AbortSignal.timeout(2500) });
     if (!response.ok) return false;
     const body = await response.json();
-    return !!body && body.ok === true;
+    return !!body && body.ok === true && body.features?.pdfTutor === true;
   } catch { return false; }
 }
 

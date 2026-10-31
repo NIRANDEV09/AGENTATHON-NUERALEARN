@@ -39,18 +39,12 @@
   document.querySelectorAll('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
   // ---------- zoom and full screen ----------
-  const zoomSteps = [0.75, 1, 1.25, 1.5, 1.75, 2];
-  function setZoom(value) {
-    const requested = Number(value);
-    const z = zoomSteps.reduce((best, step) => Math.abs(step - requested) < Math.abs(best - requested) ? step : best, 1);
-    const select = $('zoomSel'), board = $('board'), wrap = $('boardWrap');
-    select.value = String(z);
-    board.style.width = `${z * 100}%`;
-    board.style.maxWidth = 'none';
-    board.style.marginInline = z < 1 ? 'auto' : '0';
+  function setZoom(z) {
+    $('zoomSel').value = String(z);
+    const board=$('board'),wrap=$('boardWrap');
+    board.style.width = `${z * 100}%`;board.style.maxWidth='none';board.style.marginInline=z<1?'auto':'0';
     wrap.classList.toggle('zoomed', z > 1);
-    wrap.dataset.zoom = String(z);
-    requestAnimationFrame(() => { wrap.scrollLeft = 0; wrap.scrollTop = 0; });
+    requestAnimationFrame(()=>{wrap.scrollLeft=0;wrap.scrollTop=0;});
   }
   $('zoomSel').addEventListener('change', e => setZoom(e.target.value));
   $('zoomBtn').addEventListener('click', () => {

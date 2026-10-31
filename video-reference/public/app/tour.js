@@ -46,8 +46,8 @@
     ] },
     pdf: { steps: [
       { title: 'PDF tutor', text: 'Turn your notes, slides or a textbook chapter into a set of short visual lectures.' },
-      { target: ['pdfRow'], title: 'Attach your PDF', text: 'Text PDFs up to 40 MB. The file is read in your browser and never uploaded. Scanned PDFs (photos of pages) can\'t be read yet.' },
-      { target: ['board'], title: 'How it is taught', text: 'First a summary of the whole document, then every section of about 800 words gets its own lecture, in order, covering every idea in it.' },
+      { target: ['pdfRow'], title: 'Attach PDF or slides', text: 'PDFs and PPTX decks up to 40 MB are split into ordered sections. Scanned PDF pages and embedded slide images are analyzed with AI; text extraction stays in your browser.' },
+      { target: ['board'], title: 'How it is taught', text: 'The first visual lesson starts as soon as the sections are ready. Every bounded section is taught in order, while a complete overview is built in the background from all sections.' },
       { target: ['chatForm'], title: 'Ask about the document', text: 'Stuck on a part? Ask here at any time.' },
       { target: ['.verifyrow'], title: 'Keep it accurate', text: 'Verified mode checks the lectures in the background and highlights anything doubtful.' },
       { target: ['.player'], title: 'Move through sections', text: 'Pause, replay or skip ahead. The document isn\'t saved, so keep the tab open until you finish.' },

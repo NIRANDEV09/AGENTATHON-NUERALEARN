@@ -32,14 +32,15 @@ export async function computedLesson(body, model) {
     if (!match) return { supported: false };
   }
   const lesson = buildLesson(match);
+  const language = String(body?.language || 'English').slice(0,60);
   const traceMs = Date.now() - t0;
   let narration = { source: 'template' };
-  if (body.narrate === 'ai') {
+  if (body.narrate === 'ai' || !/^English(?: \(India\))?$/i.test(language)) {
     if (!model || !model.isConfigured()) narration = { source: 'template', reason: 'No model is configured.' };
     else {
       const t1 = Date.now();
       try {
-        const r = await narrateLesson(lesson, model.modelCall);
+        const r = await narrateLesson(lesson, model.modelCall, language);
         narration = { source: 'ai', model: model.currentModel(), replaced: r.replaced, rejected: r.rejected, ms: Date.now() - t1 };
       } catch (e) { narration = { source: 'template', reason: e.message }; }
     }
