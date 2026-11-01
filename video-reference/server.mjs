@@ -580,4 +580,4 @@ Return complete working HTML, with inline CSS and JS. Quality over brevity. The 
   send(res,404,{error:'Not found'});
 }
 const runDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (runDirectly) server.listen(PORT,'127.0.0.1',()=>console.log(`NeuraLearn running at http://127.0.0.1:${PORT}`));
+if (runDirectly) { const host=process.env.HOST || (process.env.RENDER ? '0.0.0.0' : '127.0.0.1'); server.listen(PORT,host,()=>console.log(`NeuraLearn running at http://${host}:${PORT}`)); }

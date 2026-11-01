@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: neuralelearn-zack-main
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: NEURA_VIDEO_SERVER
+        value: '0'
+      - key: VIDEO_SERVICE_HOST
+        fromService:
+          type: web
+          name: neuralelearn-zack-video
+          envVarKey: VIDEO_PUBLIC_HOST
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+
+  - type: web
+    name: neuralelearn-zack-video
+    runtime: node
+    rootDir: video-reference
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: VIDEO_PUBLIC_HOST
+        fromService:
+          type: web
+          name: neuralelearn-zack-video
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

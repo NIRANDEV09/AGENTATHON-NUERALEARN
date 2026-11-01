@@ -20,6 +20,7 @@ try {
   }
 } catch (_) { /* .env is optional */ }
 const PORT = Number(process.env.PORT || 3003);
+const HOST = process.env.HOST || (process.env.RENDER ? '0.0.0.0' : '127.0.0.1');
 const LLM_PROVIDER = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
 const API_KEY = process.env.GEMINI_API_KEY || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -33,6 +34,11 @@ const ROOT = path.join(__dirname, fs.existsSync(path.join(__dirname, 'dist')) ? 
 function send(res, status, data, type='application/json; charset=utf-8') {
   res.writeHead(status, {'Content-Type': type, 'Cache-Control':'no-store', 'Access-Control-Allow-Origin':'*'});
   res.end(type.startsWith('application/json') ? JSON.stringify(data) : data);
+}
+function videoServiceBase() {
+  if (process.env.VIDEO_SERVICE_URL) return process.env.VIDEO_SERVICE_URL.replace(/\/$/, '');
+  if (process.env.VIDEO_SERVICE_HOST) return `https://${process.env.VIDEO_SERVICE_HOST}`;
+  return `http://127.0.0.1:${Number(process.env.VIDEO_PORT) || 3005}`;
 }
 function readBody(req) { return new Promise((resolve,reject)=>{let s=''; req.on('data',c=>{s+=c; if(s.length>4e7) req.destroy();}); req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch(e){reject(e);}}); req.on('error',reject);}); }
 const { matchDeterministicTopic } = require('./lib/deterministic-lessons.js');
@@ -245,12 +251,16 @@ async function route(req,res) {
   if (req.method==='OPTIONS') { res.writeHead(204, {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'}); return res.end(); }
   if (url.pathname==='/api/tts' && req.method==='POST') {
     try {
-      const body=await readBody(req), upstream=await fetch(`http://127.0.0.1:${Number(process.env.VIDEO_PORT)||3005}/api/tts`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+      const body=await readBody(req), upstream=await fetch(`${videoServiceBase()}/api/tts`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
       const audio=Buffer.from(await upstream.arrayBuffer());res.writeHead(upstream.status,{'Content-Type':upstream.headers.get('content-type')||'application/json; charset=utf-8','Cache-Control':upstream.headers.get('cache-control')||'no-store',...(upstream.headers.get('x-segments')?{'X-Segments':upstream.headers.get('x-segments')}:{})});return res.end(audio);
     } catch(e){return send(res,503,{error:'Human voice service is unavailable. Start the Video Explainer server and check its Gemini voice setup.'});}
   }
   if (url.pathname==='/api/voice-status' && req.method==='GET') {
-    try{const r=await fetch(`http://127.0.0.1:${Number(process.env.VIDEO_PORT)||3005}/api/health`,{signal:AbortSignal.timeout(3000)});const h=await r.json();return send(res,200,{available:!!h.voice,voices:h.voices||[],styles:h.styles||[]});}catch{return send(res,200,{available:false,reason:'Video voice service is not running.'});}
+    try{const r=await fetch(`${videoServiceBase()}/api/health`,{signal:AbortSignal.timeout(8000)});const h=await r.json();return send(res,200,{available:!!h.voice,voices:h.voices||[],styles:h.styles||[]});}catch{return send(res,200,{available:false,reason:'Video voice service is not running.'});}
+  }
+  if (req.method==='GET' && url.pathname==='/api/public-config.js') {
+    const host=String(process.env.VIDEO_SERVICE_HOST||'').trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+    return send(res,200,`window.NEURA_VIDEO_ORIGIN=${JSON.stringify(host ? `https://${host}` : 'http://127.0.0.1:3005')};`,'text/javascript; charset=utf-8');
   }
   if (req.method==='POST' && url.pathname==='/api/docs/topics') return handleDocsTopics(req,res,readBody,send,askLLM);
   if (url.pathname==='/api/health') return send(res,200,{ok:true,build:'neuralelearn-pdf-tutor',features:{pdfTutor:true},provider:LLM_PROVIDER,model:ACTIVE_MODEL,apiKeyConfigured:!!ACTIVE_KEY,chatProvider:'groq',chatModel:GROQ_CHAT_MODEL,chatApiKeyConfigured:!!GROQ_API_KEY});
@@ -450,5 +460,5 @@ Create an accurate visual whiteboard lesson about the selected content. Draw the
   const full = path.join(ROOT,file); if(!full.startsWith(ROOT)) return send(res,403,{error:'Forbidden'});
   fs.readFile(full,(err,buf)=>{ if(err) return send(res,404,'Not found','text/plain; charset=utf-8'); const ext=path.extname(full); const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'}; send(res,200,buf.toString(),types[ext]||'application/octet-stream'); });
 }
-http.createServer((req,res)=>route(req,res).catch(e=>send(res,500,{error:e.message||'Server error'}))).listen(PORT,'127.0.0.1',()=>{console.log(`NeuraLearn running at http://localhost:${PORT} (provider: ${LLM_PROVIDER}, model: ${ACTIVE_MODEL})`);if(process.env.NEURA_VIDEO_SERVER!=='0'){const child=spawn(process.execPath,[path.join(__dirname,'video-reference','launch.cjs')],{cwd:path.join(__dirname,'video-reference'),stdio:'ignore',windowsHide:true});child.on('error',e=>console.error('Video reference server failed to start:',e.message));}});
+http.createServer((req,res)=>route(req,res).catch(e=>send(res,500,{error:e.message||'Server error'}))).listen(PORT,HOST,()=>{console.log(`NeuraLearn running at http://${HOST}:${PORT} (provider: ${LLM_PROVIDER}, model: ${ACTIVE_MODEL})`);if(process.env.NEURA_VIDEO_SERVER!=='0'){const child=spawn(process.execPath,[path.join(__dirname,'video-reference','launch.cjs')],{cwd:path.join(__dirname,'video-reference'),stdio:'ignore',windowsHide:true});child.on('error',e=>console.error('Video reference server failed to start:',e.message));}});
 

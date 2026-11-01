@@ -59,7 +59,13 @@
 
   // ---------- routing ----------
   const videoEmbedParentOrigin = new URLSearchParams(location.search).get('parentOrigin');
-  if (new URLSearchParams(location.search).get('embed') === 'video' && /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(videoEmbedParentOrigin || '')) document.documentElement.classList.add('video-embed');
+  const validVideoParentOrigin = (() => {
+    try {
+      const origin = new URL(videoEmbedParentOrigin || '');
+      return origin.origin === videoEmbedParentOrigin && (origin.protocol === 'https:' || (origin.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(origin.hostname)));
+    } catch { return false; }
+  })();
+  if (new URLSearchParams(location.search).get('embed') === 'video' && validVideoParentOrigin) document.documentElement.classList.add('video-embed');
   const SCREENS = ['screenHome', 'screenNew', 'screenLibrary', 'screenProgress', 'screenTopic', 'screenLesson', 'screenDone', 'screenLogin'];
   function show(screen, nav) {
     SCREENS.forEach(id => { $(id).hidden = id !== screen; });
