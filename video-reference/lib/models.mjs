@@ -3,9 +3,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 const GEMINI_KNOWN = {
-  'gemini-3.5-flash': { label: 'Gemini 3.5 Flash', note: 'Balanced' },
+  'gemini-3.5-flash-lite': { label: 'Gemini 3.5 Flash-Lite', note: 'Fastest, most cost-effective' },
+  'gemini-3.6-flash': { label: 'Gemini 3.6 Flash', note: 'Balanced' },
   'gemini-3.8-flash': { label: 'Gemini 3.8 Flash', note: 'Most capable, slower' },
-  'gemini-flash-lite-latest': { label: 'Gemini Flash-Lite', note: 'Fastest' },
 };
 
 const split = value => String(value || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);

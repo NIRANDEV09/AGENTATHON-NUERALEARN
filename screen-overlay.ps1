@@ -1,4 +1,4 @@
-param([int]$Port = 3003)
+﻿param([int]$Port = 3003)
 $ErrorActionPreference = 'Stop'
 $script:ViewerLog = Join-Path $env:TEMP 'NeuraLearn-Screen-Viewer.log'
 function Write-ViewerLog([string]$Message) { try { Add-Content -LiteralPath $script:ViewerLog -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss')+' '+$Message) } catch {} }
@@ -59,11 +59,12 @@ public sealed class NeuraLearnSelector : Form {
             e.Graphics.FillRoundedRectangle(box, new Rectangle(24, 24, 420, 72), 16);
             e.Graphics.DrawString("Mark an area or click a point   ·   Esc cancels", font, text, 44, 49);
         }
-        if (points.Count > 0) {
-        using (var pen = new Pen(Color.FromArgb(255, 64, 224, 208), 5)) {
-                pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; pen.LineJoin = LineJoin.Round;
-                if (points.Count == 1) e.Graphics.DrawEllipse(pen, points[0].X - 26, points[0].Y - 26, 52, 52);
-                else e.Graphics.DrawLines(pen, points.ToArray());
+        if (points.Count > 0) {        using (var shadow = new Pen(Color.FromArgb(235, 15, 0, 12), 10))
+        using (var pen = new Pen(Color.FromArgb(255, 170, 0, 36), 6)) {
+                shadow.StartCap = pen.StartCap = LineCap.Round; shadow.EndCap = pen.EndCap = LineCap.Round;
+                shadow.LineJoin = pen.LineJoin = LineJoin.Round;
+                if (points.Count == 1) { e.Graphics.DrawEllipse(shadow, points[0].X - 26, points[0].Y - 26, 52, 52); e.Graphics.DrawEllipse(pen, points[0].X - 26, points[0].Y - 26, 52, 52); }
+                else { e.Graphics.DrawLines(shadow, points.ToArray()); e.Graphics.DrawLines(pen, points.ToArray()); }
             }
         }
     }
@@ -185,8 +186,8 @@ $form.Text = 'NeuraLearn  |  Read Screen'
 $form.TopMost = $true
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::SizableToolWindow
 $form.StartPosition = 'Manual'
-$form.ClientSize = New-Object System.Drawing.Size(520, 660)
-$form.MinimumSize = New-Object System.Drawing.Size(455, 580)
+$form.ClientSize = New-Object System.Drawing.Size(420, 560)
+$form.MinimumSize = New-Object System.Drawing.Size(370, 500)
 $form.BackColor = [System.Drawing.Color]::FromArgb(242,238,255)
 $form.ForeColor = [System.Drawing.Color]::FromArgb(63,53,102)
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)

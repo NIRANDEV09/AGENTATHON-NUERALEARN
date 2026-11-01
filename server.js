@@ -23,7 +23,7 @@ const PORT = Number(process.env.PORT || 3003);
 const LLM_PROVIDER = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
 const API_KEY = process.env.GEMINI_API_KEY || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const MODEL = (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest').replace(/^models\//, '');
+const MODEL = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').replace(/^models\//, '');
 const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b';
 const ACTIVE_MODEL = LLM_PROVIDER === 'groq' ? GROQ_MODEL : MODEL;
@@ -130,7 +130,7 @@ async function askGemini(system, user, temperature=0.25, maxOutputTokens=4096, o
   if (!API_KEY) throw Object.assign(new Error('GEMINI_API_KEY is missing. Add it to your environment or .env setup.'), {status:503});
   const generationConfig={maxOutputTokens, responseMimeType:'application/json', thinkingConfig:{thinkingLevel:options.thinkingLevel||'low'}};
   const userParts = buildGeminiUserParts(user, options.attachment);
-  const models=[...new Set([MODEL,'gemini-flash-lite-latest','gemini-flash-latest','gemini-3.5-flash','gemini-3.8-flash'])];
+  const models=[...new Set([MODEL,'gemini-3.5-flash-lite','gemini-3.6-flash','gemini-3.8-flash'])];
   let response,raw,usedModel=MODEL;
   for(const model of models){
     const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(API_KEY)}`;

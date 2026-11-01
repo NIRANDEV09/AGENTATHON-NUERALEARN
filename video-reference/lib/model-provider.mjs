@@ -118,7 +118,10 @@ export async function callModelFallback(system, user, jsonMode = false, maxToken
   }
   if (!ids.length) throw fail('No AI provider is configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or XAI_API_KEY to the server environment.', 503);
   const allBusy = skipped.length > 1 || lastError?.retryable;
+  const detail = lastError?.message
+    ? ` Latest provider error: ${String(lastError.message).replace(/\s+/g, ' ').slice(0, 240)}`
+    : '';
   throw fail(allBusy
-    ? 'All configured AI models are busy or unavailable. Try again shortly, or add another provider key for fallback.'
+    ? `All configured AI models are busy or unavailable.${detail} Try again shortly, or add another provider key for fallback.`
     : (lastError?.message || 'The AI request failed.'), 503, { retryable: true });
 }

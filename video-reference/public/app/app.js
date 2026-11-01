@@ -579,7 +579,7 @@ function setBusy(busy, text='Working…'){
 function stopSpeech(){
   state.timer=null;
   if(window.Voice)Voice.stop();
-  else if(state.voiceAvailable){try{window.speechSynthesis.cancel();}catch{}}
+  if(state.voiceAvailable){try{window.speechSynthesis.cancel();}catch{}}
   state.speech=null;
 }
 function sendFrameCommand(command, extra={}){try{const f=$('lessonFrame');if(!f||f.hidden)return;f.contentWindow?.postMessage({type:'neuralelearn:command',command,...extra},'*');if(command==='play')state.playSentAt=Date.now();}catch{}}

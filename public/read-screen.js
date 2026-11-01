@@ -13,7 +13,7 @@
   function resizeCanvas(){
     const r=preview.getBoundingClientRect();if(!r.width||!r.height)return;
     ratio=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(r.width*ratio);canvas.height=Math.round(r.height*ratio);
-    ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#40e0d0';ctx.lineWidth=4;hasMarks=false;
+    ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#AA0024';ctx.lineWidth=5;ctx.shadowColor='rgba(12,0,16,.88)';ctx.shadowBlur=5;hasMarks=false;
   }
   function clearMarks(){ctx.clearRect(0,0,canvas.width/ratio,canvas.height/ratio);hasMarks=false}
   function stopCapture(){
@@ -34,9 +34,9 @@
   }
   function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
   function drawPointer(p){
-    ctx.save();ctx.strokeStyle='#ff3f55';ctx.fillStyle='rgba(255,63,85,.18)';ctx.lineWidth=3;
+    ctx.save();ctx.strokeStyle='#AA0024';ctx.fillStyle='rgba(170,0,36,.22)';ctx.lineWidth=5;ctx.shadowColor='rgba(12,0,16,.88)';ctx.shadowBlur=5;
     ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.fill();ctx.stroke();
-    ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fillStyle='#ff3f55';ctx.fill();ctx.restore();
+    ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fillStyle='#AA0024';ctx.fill();ctx.restore();
   }
   canvas.addEventListener('pointerdown',e=>{
     if(!stream||busy)return;e.preventDefault();drawing=true;dragged=false;startPoint=lastPoint=point(e);clearMarks();

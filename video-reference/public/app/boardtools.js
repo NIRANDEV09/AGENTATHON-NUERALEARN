@@ -6,6 +6,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const NS = 'http://www.w3.org/2000/svg';
+  const parentOrigin = new URLSearchParams(location.search).get('parentOrigin');
   const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const B = { lesson: null, si: 0, bi: 0, idx: null, tab: 'board', tool: 'select', color: '#5b5bf0', beatAt: 0, timeline: null };
@@ -39,22 +40,66 @@
   document.querySelectorAll('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
   // ---------- zoom and full screen ----------
-  function setZoom(z) {
-    $('zoomSel').value = String(z);
-    const board=$('board'),wrap=$('boardWrap');
-    board.style.width = `${z * 100}%`;board.style.maxWidth='none';board.style.marginInline=z<1?'auto':'0';
-    wrap.classList.toggle('zoomed', z > 1);
-    requestAnimationFrame(()=>{wrap.scrollLeft=0;wrap.scrollTop=0;});
+  const zoomSteps = [0.75, 1, 1.25, 1.5, 1.75, 2];
+  let boardBaseWidth = 0;
+  const measureBoard = () => {
+    const wrap = $('boardWrap');
+    if (wrap && wrap.getBoundingClientRect().width > 0) boardBaseWidth = Math.round(wrap.getBoundingClientRect().width);
+  };
+  function setZoom(value) {
+    const requested = Number(value);
+    const z = zoomSteps.reduce((best, step) => Math.abs(step - requested) < Math.abs(best - requested) ? step : best, 1);
+    const select = $('zoomSel'), board = $('board'), wrap = $('boardWrap');
+    const previousZoom = Number(wrap.dataset.zoom) || 1;
+    const anchorX = wrap.scrollLeft + wrap.clientWidth / 2;
+    const anchorY = wrap.scrollTop + wrap.clientHeight / 2;
+    select.value = String(z);
+    measureBoard();
+    board.style.width = `${Math.round(boardBaseWidth * z)}px`;
+    board.style.flex = 'none';
+    board.style.maxWidth = 'none';
+    board.style.marginInline = z < 1 ? 'auto' : '0';
+    wrap.classList.toggle('zoomed', z !== 1);
+    wrap.dataset.zoom = String(z);
+    $('zoomBtn').title = `Zoom in (currently ${Math.round(z * 100)}%)`;
+    requestAnimationFrame(() => {
+      const ratio = z / previousZoom;
+      wrap.scrollLeft = Math.max(0, anchorX * ratio - wrap.clientWidth / 2);
+      wrap.scrollTop = Math.max(0, anchorY * ratio - wrap.clientHeight / 2);
+    });
   }
+  const boardResize = new ResizeObserver(() => {
+    const z = Number($('zoomSel').value) || 1;
+    measureBoard();
+    $('board').style.width = `${Math.round(boardBaseWidth * z)}px`;
+  });
+  boardResize.observe($('boardWrap'));
+  window.addEventListener('resize', measureBoard);
+  requestAnimationFrame(() => setZoom($('zoomSel').value));
   $('zoomSel').addEventListener('change', e => setZoom(e.target.value));
   $('zoomBtn').addEventListener('click', () => {
-    const index = zoomSteps.indexOf(Number($('zoomSel').value));
-    setZoom(zoomSteps[Math.min(index + 1, zoomSteps.length - 1)]);
+    const current = Number($('zoomSel').value) || 1;
+    // A toolbar click should be immediately obvious. Keep 75% -> 100%, then
+    // advance by 50% so the board visibly grows on every press.
+    const next = current < 1 ? 1 : Math.min(2, current + 0.5);
+    setZoom(next);
   });
   $('fullBtn').addEventListener('click', () => {
     const card = $('boardCard');
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else if (card.requestFullscreen) card.requestFullscreen().catch(() => {});
+    const button = $('fullBtn');
+    const active = !card.classList.contains('app-fullscreen');
+    card.classList.toggle('app-fullscreen', active);
+    document.body.classList.toggle('board-fullscreen', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.title = active ? 'Exit full screen' : 'Full screen';
+    if (window.parent !== window && parentOrigin) {
+      window.parent.postMessage({ type: 'neuralelearn:board-fullscreen', active }, parentOrigin);
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('boardCard').classList.contains('app-fullscreen')) {
+      $('fullBtn').click();
+    }
   });
 
   // ---------- drawing tools ----------

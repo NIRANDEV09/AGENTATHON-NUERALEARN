@@ -171,7 +171,7 @@ async function modelStream(system, user, maxTokens, onText, options = {}) {
     }
   }
   const message = alternatives.length || lastErr?.busy
-    ? 'All configured AI models are busy or unavailable. Try again shortly, or add another provider key for fallback.'
+    ? `All configured AI models are busy or unavailable.${lastErr?.message ? ` Latest provider error: ${String(lastErr.message).replace(/\s+/g,' ').slice(0,240)}` : ''} Try again shortly, or add another provider key for fallback.`
     : (lastErr?.message || 'Gemini request failed.');
   throw Object.assign(new Error(message), {status:503});
 }

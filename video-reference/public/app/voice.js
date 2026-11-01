@@ -17,7 +17,7 @@
     choice: pref('nl.voiceChoice') || 'natural:Sulafat', style: pref('nl.voiceStyle') || 'professor', language: pref('nl.language') || 'English',
     natural: null, reason: '', rpm: 3,
     voices: [{ id: 'Kore', description: 'Firm' }], styles: [{ id: 'professor', label: 'Patient professor' }],
-    chunks: new Map(), byLine: new Map(), queue: [], sent: [], holdUntil: 0, timer: 0, current: null,
+    chunks: new Map(), byLine: new Map(), queue: [], sent: [], holdUntil: 0, timer: 0, current: null, playbackRun: 0,
   };
   const WAIT_FIRST = 14000, WAIT_NEXT = 9000, MAX_CHUNKS = 40;
   const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
@@ -133,7 +133,7 @@
       const a = new Audio(res.url);
       a.playbackRate = rate; a.preservesPitch = true;
       let ended = false, raf = 0;
-      const fin = () => { if (ended) return; ended = true; cancelAnimationFrame(raf); a.pause(); onProgress(1); V.current = null; resolve(); };
+      const fin = () => { if (ended) return; ended = true; cancelAnimationFrame(raf); a.pause(); onProgress(1); if (V.current?.audio === a) V.current = null; resolve(); };
       const watch = () => {
         if (ended) return;
         const end = Math.min(to, a.duration || to);
@@ -141,7 +141,7 @@
         onProgress((a.currentTime - from) / Math.max(0.1, end - from));
         raf = requestAnimationFrame(watch);
       };
-      V.current = { stop: fin, pause() { a.pause(); cancelAnimationFrame(raf); }, resume() { a.play().then(watch, fin); } };
+      V.current = { audio: a, stop: fin, pause() { a.pause(); cancelAnimationFrame(raf); }, resume() { a.play().then(watch, fin); } };
       a.onended = fin; a.onerror = fin;
       a.addEventListener('loadedmetadata', () => { a.currentTime = from; a.play().then(watch, fin); }, { once: true });
     });
@@ -191,18 +191,21 @@
   // Resolves when the line has been spoken (or stopped).
   async function speak(text, { rate = 1, onProgress = () => {}, onWait = () => {} } = {}) {
     stop();
+    const run = V.playbackRun;
     if (V.choice === 'off') return;
     const where = naturalOn() && V.byLine.get(`${naturalVoice()}|${V.style}|${V.language}|${norm(text)}`), chunk = where && V.chunks.get(where.key);
     if (chunk && chunk.state !== 'failed') {
       if (chunk.state !== 'ready') onWait(true);
       let res = null;
       try { res = await Promise.race([chunk.promise, new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), where.index === 0 ? WAIT_FIRST : WAIT_NEXT))]); } catch {}
+      if (run !== V.playbackRun) { onWait(false); return; }
       onWait(false);
       if (res) return playSegment(res, where.index, rate, onProgress);
     }
+    if (run !== V.playbackRun) return;
     return speakDevice(text, rate, onProgress);
   }
-  function stop() { if (V.current) { const c = V.current; V.current = null; c.stop(); } }
+  function stop() { V.playbackRun++; if (V.current) { const c = V.current; V.current = null; c.stop(); } }
   function pause() { V.current?.pause?.(); }
   function resume() { V.current?.resume?.(); }
   const status = t => { if (typeof chatStatus === 'function') chatStatus(t); document.dispatchEvent(new CustomEvent('nl:notify', { detail: { text: t, kind: 'warn' } })); };
